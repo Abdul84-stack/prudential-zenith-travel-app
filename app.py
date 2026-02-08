@@ -1758,19 +1758,6 @@ def admin_panel():
         st.info("No approved requests pending cost input")
     
     conn.close()
-                        
-                        if submit_btn:
-                            st.success("✅ Costs submitted for payment approval!")
-                            st.info("**Next:** Chief Compliance Officer approval")
-                        else:
-                            st.info("💾 Draft saved successfully")
-                        
-                        time.sleep(2)
-                        st.rerun()
-    else:
-        st.info("No approved requests pending cost input")
-    
-    conn.close()
 
 def payment_approvals():
     """Payment approval workflow"""
@@ -2273,4 +2260,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
