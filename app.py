@@ -665,6 +665,136 @@ def generate_pdf_report(request_id):
     pdf_bytes = pdf.output(dest='S').encode('latin-1')
     return pdf_bytes
 
+# NEW FUNCTIONS FOR APPROVAL WORKFLOW
+def get_pending_approvals_for_role(role):
+    """Get all pending approvals for a specific role"""
+    conn = sqlite3.connect('travel_app.db')
+    
+    # For CFO/ED role
+    if role == "CFO/ED":
+        query = """
+            SELECT tr.*, u.full_name, u.department, u.grade 
+            FROM travel_requests tr 
+            JOIN users u ON tr.user_id = u.id 
+            WHERE tr.status = 'pending' 
+            AND tr.current_approver = ?
+            ORDER BY tr.created_at DESC
+        """
+        approvals = pd.read_sql(query, conn, params=("CFO/ED",))
+    
+    # For MD role
+    elif role == "MD":
+        query = """
+            SELECT tr.*, u.full_name, u.department, u.grade 
+            FROM travel_requests tr 
+            JOIN users u ON tr.user_id = u.id 
+            WHERE tr.status = 'pending' 
+            AND tr.current_approver = ?
+            ORDER BY tr.created_at DESC
+        """
+        approvals = pd.read_sql(query, conn, params=("MD",))
+    
+    # For Head of Department role
+    elif role == "Head of Department":
+        # Get all departments where this user is the head
+        query = """
+            SELECT tr.*, u.full_name, u.department, u.grade 
+            FROM travel_requests tr 
+            JOIN users u ON tr.user_id = u.id 
+            WHERE tr.status = 'pending' 
+            AND tr.current_approver = 'Head of Department'
+            AND u.department = ?
+            ORDER BY tr.created_at DESC
+        """
+        approvals = pd.read_sql(query, conn, params=(st.session_state.department,))
+    
+    else:
+        # For other specific roles
+        query = """
+            SELECT tr.*, u.full_name, u.department, u.grade 
+            FROM travel_requests tr 
+            JOIN users u ON tr.user_id = u.id 
+            WHERE tr.status = 'pending' 
+            AND tr.current_approver = ?
+            ORDER BY tr.created_at DESC
+        """
+        approvals = pd.read_sql(query, conn, params=(role,))
+    
+    conn.close()
+    return approvals
+
+def process_approval(request_id, action, comments=""):
+    """Process approval or rejection of a travel request"""
+    conn = sqlite3.connect('travel_app.db')
+    c = conn.cursor()
+    
+    # Get current request details
+    c.execute("SELECT * FROM travel_requests WHERE id = ?", (request_id,))
+    request = c.fetchone()
+    
+    if not request:
+        conn.close()
+        return False, "Request not found"
+    
+    # Get approval flow
+    approval_flow = json.loads(request[15])  # Column 15 is approval_flow
+    
+    # Find current approver index
+    try:
+        current_index = approval_flow.index(request[13])  # Column 13 is current_approver
+    except ValueError:
+        conn.close()
+        return False, "Approval flow error"
+    
+    if action == "approve":
+        # Move to next approver or complete
+        if current_index + 1 < len(approval_flow):
+            next_approver = approval_flow[current_index + 1]
+            new_status = "pending"
+            current_approver = next_approver
+        else:
+            new_status = "approved"
+            current_approver = None
+        
+        # Update request
+        c.execute("""
+            UPDATE travel_requests 
+            SET status = ?, current_approver = ? 
+            WHERE id = ?
+        """, (new_status, current_approver, request_id))
+        
+        # Record approval
+        c.execute("""
+            INSERT INTO approvals 
+            (request_id, approver_role, approver_name, status, comments) 
+            VALUES (?, ?, ?, ?, ?)
+        """, (request_id, st.session_state.role, st.session_state.full_name, 
+              "approved", comments))
+        
+        message = "Request approved"
+        
+    elif action == "reject":
+        # Update request to rejected
+        c.execute("""
+            UPDATE travel_requests 
+            SET status = 'rejected', current_approver = NULL 
+            WHERE id = ?
+        """, (request_id,))
+        
+        # Record rejection
+        c.execute("""
+            INSERT INTO approvals 
+            (request_id, approver_role, approver_name, status, comments) 
+            VALUES (?, ?, ?, ?, ?)
+        """, (request_id, st.session_state.role, st.session_state.full_name, 
+              "rejected", comments))
+        
+        message = "Request rejected"
+    
+    conn.commit()
+    conn.close()
+    return True, message
+
 def login():
     """Login page with red and grey color scheme"""
     # Company header
@@ -897,12 +1027,18 @@ def dashboard():
         menu_options = ["Dashboard", "My Profile", "Update Profile", "Travel Request", 
                        "Travel History", "Payment Status", "Analytics"]
         
+        # Add Approvals based on role
+        if st.session_state.role in ["MD", "ED", "CFO/ED", "Head of Department", 
+                                    "Chief Commercial Officer", "Chief Agency Officer",
+                                    "Chief Compliance Officer", "Chief Risk Officer"]:
+            menu_options.append("Approvals")
+        
         # Role-based navigation
         if st.session_state.role in ["Head of Administration", "admin"]:
             menu_options.extend(["Admin Panel", "Payment Approvals", "Budget Analytics"])
-        elif st.session_state.role in ["Chief Compliance Officer"]:
+        elif st.session_state.role == "Chief Compliance Officer":
             menu_options.extend(["Compliance Approvals"])
-        elif st.session_state.role in ["Chief Risk Officer"]:
+        elif st.session_state.role == "Chief Risk Officer":
             menu_options.extend(["Risk Approvals"])
         elif st.session_state.role in ["CFO/ED", "MD"]:
             menu_options.extend(["Final Approvals"])
@@ -913,9 +1049,10 @@ def dashboard():
             menu_title="Navigation",
             options=menu_options,
             icons=["house", "person", "pencil", "airplane", "clock-history", "credit-card", "graph-up",
-                   "gear", "check-circle", "calculator", "shield-check", "shield-exclamation", 
-                   "check-square", "cash"] if st.session_state.role == "Head of Administration" else
-                   ["house", "person", "pencil", "airplane", "clock-history", "credit-card", "graph-up"],
+                   "check-circle", "gear", "check-circle", "calculator", "shield-check", "shield-exclamation", 
+                   "check-square", "cash"] if st.session_state.role in ["Head of Administration", "admin"] else
+                   ["house", "person", "pencil", "airplane", "clock-history", "credit-card", "graph-up",
+                   "check-circle"],
             menu_icon="compass",
             default_index=0,
             styles={
@@ -977,6 +1114,8 @@ def dashboard():
         payment_status()
     elif selected == "Analytics":
         analytics_dashboard()
+    elif selected == "Approvals":
+        show_approvals()
     elif selected == "Admin Panel":
         admin_panel()
     elif selected == "Payment Approvals":
@@ -1053,7 +1192,7 @@ def show_dashboard():
                 <h3 style="color: #2196F3;">{paid}</h3>
                 <p style="color: #616161;">Paid</p>
             </div>
-            """, unsafe_allow_html=True)
+            ""', unsafe_allow_html=True)
     
     st.markdown("---")
     
@@ -1419,6 +1558,88 @@ def payment_status():
         st.info("No payment records found")
     
     conn.close()
+
+def show_approvals():
+    """Display pending approvals for the current user's role"""
+    if st.session_state.role not in ["MD", "ED", "CFO/ED", "Head of Department", 
+                                    "Chief Commercial Officer", "Chief Agency Officer",
+                                    "Chief Compliance Officer", "Chief Risk Officer"]:
+        st.warning("You don't have approval privileges")
+        return
+    
+    st.markdown('<h1 class="sub-header">Pending Approvals</h1>', unsafe_allow_html=True)
+    
+    # Get pending approvals for current role
+    pending_approvals = get_pending_approvals_for_role(st.session_state.role)
+    
+    if not pending_approvals.empty:
+        st.info(f"You have {len(pending_approvals)} pending approval(s)")
+        
+        for _, row in pending_approvals.iterrows():
+            with st.container():
+                st.markdown(f"### 📋 Travel Request #{row['id']}")
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown(f"**Employee:** {row['full_name']}")
+                    st.markdown(f"**Department:** {row['department']}")
+                    st.markdown(f"**Grade:** {row['grade']}")
+                    st.markdown(f"**Type:** {row['travel_type'].title()}")
+                    st.markdown(f"**Destination:** {row['destination']}")
+                
+                with col2:
+                    st.markdown(f"**Purpose:** {row['purpose']}")
+                    st.markdown(f"**Mode of Travel:** {row['mode_of_travel']}")
+                    st.markdown(f"**Departure:** {row['departure_date']}")
+                    st.markdown(f"**Arrival:** {row['arrival_date']}")
+                    st.markdown(f"**Duration:** {row['duration_days']} days")
+                    st.markdown(f"**Accommodation:** {row['accommodation_needed']}")
+                
+                # Show approval flow
+                approval_flow = json.loads(row['approval_flow'])
+                current_index = approval_flow.index(row['current_approver']) if row['current_approver'] in approval_flow else -1
+                
+                st.markdown("**Approval Flow:**")
+                cols = st.columns(len(approval_flow))
+                for i, approver in enumerate(approval_flow):
+                    with cols[i]:
+                        if i < current_index:
+                            st.markdown(f"✅ {approver}")
+                        elif i == current_index:
+                            st.markdown(f"⏳ **{approver}** (Current - YOU)")
+                        else:
+                            st.markdown(f"⏭️ {approver}")
+                
+                # Approval actions
+                st.markdown("---")
+                col_a, col_b = st.columns(2)
+                
+                with col_a:
+                    if st.button(f"✅ Approve", key=f"approve_{row['id']}", type="primary"):
+                        success, message = process_approval(row['id'], "approve")
+                        if success:
+                            st.success(message)
+                            time.sleep(2)
+                            st.rerun()
+                        else:
+                            st.error(message)
+                
+                with col_b:
+                    if st.button(f"❌ Reject", key=f"reject_{row['id']}"):
+                        comments = st.text_input("Reason for rejection", key=f"reject_reason_{row['id']}")
+                        if comments:
+                            success, message = process_approval(row['id'], "reject", comments)
+                            if success:
+                                st.error(message)
+                                time.sleep(2)
+                                st.rerun()
+                        else:
+                            st.warning("Please provide a reason for rejection")
+                
+                st.markdown("---")
+    else:
+        st.success("🎉 No pending approvals! You're all caught up.")
 
 def admin_panel():
     """Admin panel for managing travel costs"""
@@ -2034,5 +2255,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
