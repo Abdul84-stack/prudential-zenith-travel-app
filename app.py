@@ -612,9 +612,9 @@ def dashboard():
             default_index=0,
             styles={
                 "container": {"padding": "0!important", "background-color": "#fafafa"},
-                "icon": {"color": #D32F2F, "font-size": "18px"}, 
+                "icon": {"color": "#D32F2F", "font-size": "18px"}, 
                 "nav-link": {"font-size": "16px", "text-align": "left", "margin": "0px", "--hover-color": "#eee"},
-                "nav-link-selected": {"background-color": #D32F2F, "color": "white"},
+                "nav-link-selected": {"background-color": "#D32F2F", "color": "white"},
             }
         )
         
