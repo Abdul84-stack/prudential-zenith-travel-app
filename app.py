@@ -1192,7 +1192,7 @@ def show_dashboard():
                 <h3 style="color: #2196F3;">{paid}</h3>
                 <p style="color: #616161;">Paid</p>
             </div>
-            ""', unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
     
     st.markdown("---")
     
