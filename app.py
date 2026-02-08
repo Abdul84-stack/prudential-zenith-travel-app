@@ -664,7 +664,6 @@ def generate_pdf_report(request_id):
     # Generate PDF in memory
     pdf_bytes = pdf.output(dest='S').encode('latin-1')
     return pdf_bytes
-
 def get_pending_approvals_for_role(role):
     """Get all pending approvals for a specific role"""
     conn = sqlite3.connect('travel_app.db')
@@ -676,7 +675,7 @@ def get_pending_approvals_for_role(role):
             FROM travel_requests tr 
             JOIN users u ON tr.user_id = u.id 
             WHERE tr.status = 'pending' 
-            AND tr.current_approver = 'CFO/ED'
+            AND (tr.current_approver = 'CFO/ED' OR tr.current_approver IS NULL)
             ORDER BY tr.created_at DESC
         """
         approvals = pd.read_sql(query, conn, params=())
@@ -688,39 +687,39 @@ def get_pending_approvals_for_role(role):
             FROM travel_requests tr 
             JOIN users u ON tr.user_id = u.id 
             WHERE tr.status = 'pending' 
-            AND tr.current_approver = 'MD'
+            AND (tr.current_approver = 'MD' OR tr.current_approver IS NULL)
             ORDER BY tr.created_at DESC
         """
         approvals = pd.read_sql(query, conn, params=())
     
-    # For Head of Department role - users who are Heads of their departments
+    # For Head of Department role
     elif role == "Head of Department":
-        # Get users who are Heads of their departments
         query = """
             SELECT tr.*, u.full_name, u.department, u.grade 
             FROM travel_requests tr 
             JOIN users u ON tr.user_id = u.id 
             WHERE tr.status = 'pending' 
-            AND tr.current_approver = 'Head of Department'
+            AND (tr.current_approver = 'Head of Department' OR tr.current_approver IS NULL)
             AND u.department = ?
             ORDER BY tr.created_at DESC
         """
         approvals = pd.read_sql(query, conn, params=(st.session_state.department,))
     
-    # For other specific roles like Chief Compliance Officer, etc.
+    # For other specific roles
     else:
         query = """
             SELECT tr.*, u.full_name, u.department, u.grade 
             FROM travel_requests tr 
             JOIN users u ON tr.user_id = u.id 
             WHERE tr.status = 'pending' 
-            AND tr.current_approver = ?
+            AND (tr.current_approver = ? OR tr.current_approver IS NULL)
             ORDER BY tr.created_at DESC
         """
         approvals = pd.read_sql(query, conn, params=(role,))
     
     conn.close()
     return approvals
+
 def process_approval(request_id, action, comments=""):
     """Process approval or rejection of a travel request"""
     conn = sqlite3.connect('travel_app.db')
@@ -2260,5 +2259,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
