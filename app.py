@@ -15,7 +15,6 @@ import plotly.graph_objects as go
 from streamlit_option_menu import option_menu
 import time
 import tempfile
-from fpdf import FPDF
 
 # Page configuration
 st.set_page_config(
@@ -170,6 +169,58 @@ st.markdown("""
     .stTabs [aria-selected="true"] {
         background-color: #D32F2F;
         color: white;
+    }
+    /* PDF Report Styling */
+    .pdf-report {
+        background: white;
+        padding: 20px;
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        margin: 20px 0;
+        font-family: Arial, sans-serif;
+    }
+    .pdf-header {
+        text-align: center;
+        border-bottom: 3px solid #D32F2F;
+        padding-bottom: 20px;
+        margin-bottom: 20px;
+    }
+    .pdf-title {
+        color: #D32F2F;
+        font-size: 24px;
+        margin: 0;
+    }
+    .pdf-subtitle {
+        color: #616161;
+        font-size: 16px;
+        margin: 5px 0;
+    }
+    .pdf-section {
+        margin: 15px 0;
+        padding: 15px;
+        border: 1px solid #eee;
+        border-radius: 5px;
+        background: #f9f9f9;
+    }
+    .pdf-section h3 {
+        color: #D32F2F;
+        border-bottom: 1px solid #ddd;
+        padding-bottom: 5px;
+        margin-bottom: 10px;
+    }
+    .pdf-row {
+        display: flex;
+        justify-content: space-between;
+        margin: 5px 0;
+    }
+    .pdf-label {
+        font-weight: bold;
+        color: #616161;
+        flex: 1;
+    }
+    .pdf-value {
+        flex: 2;
+        color: #333;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -444,65 +495,108 @@ def calculate_travel_costs(grade, travel_type, duration_nights):
         policy = INTERNATIONAL_POLICY[grade_category]
         return policy["total"] * duration_nights
 
-def generate_pdf_report(request_data, cost_data, user_data):
-    """Generate PDF report for travel request"""
-    pdf = FPDF()
-    pdf.add_page()
+def generate_html_report(request_data, cost_data, user_data):
+    """Generate HTML report for travel request"""
+    html_content = f"""
+    <div class="pdf-report">
+        <div class="pdf-header">
+            <h1 class="pdf-title">PRUDENTIAL ZENITH TRAVEL REQUEST REPORT</h1>
+            <p class="pdf-subtitle">Travel Management System</p>
+            <p class="pdf-subtitle">Generated on: {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
+        </div>
+        
+        <div class="pdf-section">
+            <h3>Employee Information</h3>
+            <div class="pdf-row">
+                <span class="pdf-label">Name:</span>
+                <span class="pdf-value">{user_data.get('full_name', 'N/A')}</span>
+            </div>
+            <div class="pdf-row">
+                <span class="pdf-label">Employee ID:</span>
+                <span class="pdf-value">{user_data.get('employee_id', 'N/A')}</span>
+            </div>
+            <div class="pdf-row">
+                <span class="pdf-label">Department:</span>
+                <span class="pdf-value">{user_data.get('department', 'N/A')}</span>
+            </div>
+            <div class="pdf-row">
+                <span class="pdf-label">Grade:</span>
+                <span class="pdf-value">{user_data.get('grade', 'N/A')}</span>
+            </div>
+        </div>
+        
+        <div class="pdf-section">
+            <h3>Travel Details</h3>
+            <div class="pdf-row">
+                <span class="pdf-label">Destination:</span>
+                <span class="pdf-value">{request_data.get('city', 'N/A')}, {request_data.get('state', 'N/A')}</span>
+            </div>
+            <div class="pdf-row">
+                <span class="pdf-label">Purpose:</span>
+                <span class="pdf-value">{request_data.get('purpose', 'N/A')}</span>
+            </div>
+            <div class="pdf-row">
+                <span class="pdf-label">Travel Type:</span>
+                <span class="pdf-value">{request_data.get('travel_type', 'N/A').title()}</span>
+            </div>
+            <div class="pdf-row">
+                <span class="pdf-label">Mode of Travel:</span>
+                <span class="pdf-value">{request_data.get('mode_of_travel', 'N/A')}</span>
+            </div>
+            <div class="pdf-row">
+                <span class="pdf-label">Departure Date:</span>
+                <span class="pdf-value">{request_data.get('departure_date', 'N/A')}</span>
+            </div>
+            <div class="pdf-row">
+                <span class="pdf-label">Arrival Date:</span>
+                <span class="pdf-value">{request_data.get('arrival_date', 'N/A')}</span>
+            </div>
+            <div class="pdf-row">
+                <span class="pdf-label">Duration:</span>
+                <span class="pdf-value">{request_data.get('duration_days', 0)} days ({request_data.get('duration_nights', 0)} nights)</span>
+            </div>
+        </div>
+    """
     
-    # Add logo/header
-    pdf.set_font('Arial', 'B', 16)
-    pdf.cell(200, 10, 'PRUDENTIAL ZENITH TRAVEL REQUEST REPORT', 0, 1, 'C')
-    pdf.ln(10)
-    
-    # Employee Information
-    pdf.set_font('Arial', 'B', 12)
-    pdf.cell(200, 10, 'Employee Information', 0, 1, 'L')
-    pdf.set_font('Arial', '', 10)
-    pdf.cell(200, 6, f'Name: {user_data["full_name"]}', 0, 1)
-    pdf.cell(200, 6, f'Employee ID: {user_data["employee_id"]}', 0, 1)
-    pdf.cell(200, 6, f'Department: {user_data["department"]}', 0, 1)
-    pdf.cell(200, 6, f'Grade: {user_data["grade"]}', 0, 1)
-    pdf.ln(5)
-    
-    # Travel Details
-    pdf.set_font('Arial', 'B', 12)
-    pdf.cell(200, 10, 'Travel Details', 0, 1, 'L')
-    pdf.set_font('Arial', '', 10)
-    pdf.cell(200, 6, f'Destination: {request_data["destination"]}, {request_data["city"]}', 0, 1)
-    pdf.cell(200, 6, f'Purpose: {request_data["purpose"]}', 0, 1)
-    pdf.cell(200, 6, f'Departure: {request_data["departure_date"]} to {request_data["arrival_date"]}', 0, 1)
-    pdf.cell(200, 6, f'Duration: {request_data["duration_days"]} days ({request_data["duration_nights"]} nights)', 0, 1)
-    pdf.ln(5)
-    
-    # Cost Details
     if cost_data:
-        pdf.set_font('Arial', 'B', 12)
-        pdf.cell(200, 10, 'Cost Details', 0, 1, 'L')
-        pdf.set_font('Arial', '', 10)
-        pdf.cell(200, 6, f'Flight Cost: ₦{cost_data.get("flight_cost", 0):,.2f}', 0, 1)
-        pdf.cell(200, 6, f'Per Diem: ₦{cost_data.get("per_diem_amount", 0):,.2f}', 0, 1)
-        pdf.cell(200, 6, f'Total Cost: ₦{cost_data.get("total_cost", 0):,.2f}', 0, 1)
-        pdf.cell(200, 6, f'Budget Balance: ₦{cost_data.get("budget_balance", 0):,.2f}', 0, 1)
-        pdf.ln(5)
+        html_content += f"""
+        <div class="pdf-section">
+            <h3>Cost Details</h3>
+            <div class="pdf-row">
+                <span class="pdf-label">Flight Cost:</span>
+                <span class="pdf-value">₦{cost_data.get('flight_cost', 0):,.2f}</span>
+            </div>
+            <div class="pdf-row">
+                <span class="pdf-label">Per Diem Amount:</span>
+                <span class="pdf-value">₦{cost_data.get('per_diem_amount', 0):,.2f}</span>
+            </div>
+            <div class="pdf-row">
+                <span class="pdf-label">Total Cost:</span>
+                <span class="pdf-value">₦{cost_data.get('total_cost', 0):,.2f}</span>
+            </div>
+            <div class="pdf-row">
+                <span class="pdf-label">Budget Balance:</span>
+                <span class="pdf-value">₦{cost_data.get('budget_balance', 0):,.2f}</span>
+            </div>
+        </div>
+        """
     
-    # Approval Status
-    pdf.set_font('Arial', 'B', 12)
-    pdf.cell(200, 10, 'Approval Status', 0, 1, 'L')
-    pdf.set_font('Arial', '', 10)
-    pdf.cell(200, 6, f'Status: {request_data["status"].upper()}', 0, 1)
-    payment_status = cost_data.get("payment_status", "N/A") if cost_data else "N/A"
-    pdf.cell(200, 6, f'Payment Status: {payment_status}', 0, 1)
-    pdf.ln(10)
+    html_content += f"""
+        <div class="pdf-section">
+            <h3>Approval Status</h3>
+            <div class="pdf-row">
+                <span class="pdf-label">Request Status:</span>
+                <span class="pdf-value">{request_data.get('status', 'N/A').upper()}</span>
+            </div>
+            <div class="pdf-row">
+                <span class="pdf-label">Payment Status:</span>
+                <span class="pdf-value">{cost_data.get('payment_status', 'N/A') if cost_data else 'N/A'}</span>
+            </div>
+        </div>
+    </div>
+    """
     
-    # Footer
-    pdf.set_font('Arial', 'I', 8)
-    pdf.cell(200, 10, f'Generated on: {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}', 0, 1, 'C')
-    
-    # Save to temporary file
-    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
-    pdf.output(temp_file.name)
-    
-    return temp_file.name
+    return html_content
 
 def login():
     """Login page with red and grey color scheme"""
@@ -968,14 +1062,14 @@ def travel_request_form():
                 st.rerun()
 
 def travel_history():
-    """Travel history with payment status and PDF download"""
+    """Travel history with payment status and HTML report download"""
     st.markdown('<h1 class="sub-header">Travel History</h1>', unsafe_allow_html=True)
     
     conn = sqlite3.connect('travel_app.db')
     
     # Get all travel requests for user
     query = """
-    SELECT tr.*, tc.payment_status, tc.total_cost, tc.flight_cost
+    SELECT tr.*, tc.payment_status, tc.total_cost, tc.flight_cost, tc.per_diem_amount, tc.budget_balance
     FROM travel_requests tr
     LEFT JOIN travel_costs tc ON tr.id = tc.request_id
     WHERE tr.username = ?
@@ -1021,8 +1115,8 @@ def travel_history():
                     st.write(f"**Total Cost:** ₦{row['total_cost']:,.2f}" if row['total_cost'] else "**Total Cost:** N/A")
                     st.write(f"**Flight Cost:** ₦{row['flight_cost']:,.2f}" if row['flight_cost'] else "**Flight Cost:** N/A")
                 
-                # PDF Download button
-                if st.button("📄 Download PDF Report", key=f"pdf_{row['id']}"):
+                # HTML Report button
+                if st.button("📄 Generate Report", key=f"report_{row['id']}"):
                     # Get user data
                     c = conn.cursor()
                     c.execute("SELECT * FROM users WHERE username = ?", (st.session_state.username,))
@@ -1034,10 +1128,10 @@ def travel_history():
                     
                     # Convert to dictionaries
                     user_dict = {
-                        'full_name': user_data[1],
-                        'employee_id': user_data[8],
-                        'department': user_data[5],
-                        'grade': user_data[6]
+                        'full_name': user_data[1] if user_data else st.session_state.full_name,
+                        'employee_id': user_data[8] if user_data else st.session_state.employee_id,
+                        'department': user_data[5] if user_data else st.session_state.department,
+                        'grade': user_data[6] if user_data else st.session_state.grade
                     }
                     
                     cost_dict = {}
@@ -1050,21 +1144,22 @@ def travel_history():
                             'payment_status': cost_data[13]
                         }
                     
-                    # Generate PDF
-                    pdf_file = generate_pdf_report(row, cost_dict, user_dict)
+                    # Generate HTML report
+                    html_report = generate_html_report(row, cost_dict, user_dict)
                     
-                    # Download
-                    with open(pdf_file, 'rb') as f:
-                        st.download_button(
-                            label="Click to Download PDF",
-                            data=f,
-                            file_name=f"travel_report_{row['id']}.pdf",
-                            mime="application/pdf",
-                            key=f"download_{row['id']}"
-                        )
+                    # Display report
+                    st.markdown("### Travel Request Report")
+                    st.markdown(html_report, unsafe_allow_html=True)
                     
-                    # Clean up
-                    os.unlink(pdf_file)
+                    # Option to download as HTML
+                    html_bytes = html_report.encode('utf-8')
+                    st.download_button(
+                        label="📥 Download as HTML",
+                        data=html_bytes,
+                        file_name=f"travel_report_{row['id']}.html",
+                        mime="text/html",
+                        key=f"download_{row['id']}"
+                    )
     else:
         st.info("No travel history found")
     
