@@ -15,10 +15,6 @@ import plotly.graph_objects as go
 from streamlit_option_menu import option_menu
 import time
 import csv
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
-from reportlab.lib.utils import ImageReader
-from io import BytesIO
 
 # Page configuration
 st.set_page_config(
@@ -166,6 +162,14 @@ st.markdown("""
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
         border: 1px solid #E9ECEF;
     }
+    .currency-ngn {
+        color: #28a745;
+        font-weight: bold;
+    }
+    .currency-usd {
+        color: #17a2b8;
+        font-weight: bold;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -189,6 +193,9 @@ if 'grade' not in st.session_state:
     st.session_state.grade = ''
 if 'full_name' not in st.session_state:
     st.session_state.full_name = ''
+
+# ANNUAL TRAVEL BUDGET - NGN 750,000,000
+ANNUAL_TRAVEL_BUDGET = 750000000
 
 # Departments and Grades
 DEPARTMENTS = [
@@ -378,13 +385,16 @@ def init_db():
         except:
             pass
     
-    # Initialize budget data
+    # Initialize budget data with annual budget of NGN 750,000,000
     current_year = datetime.datetime.now().year
+    # Allocate budget proportionally to departments
+    department_budget = ANNUAL_TRAVEL_BUDGET / len(DEPARTMENTS)
+    
     for dept in DEPARTMENTS:
         c.execute('''INSERT OR IGNORE INTO budget 
                    (department, budget_year, planned_budget, ytd_budget, ytd_actual) 
                    VALUES (?, ?, ?, ?, ?)''',
-                 (dept, current_year, 10000000, 0, 0))
+                 (dept, current_year, department_budget, 0, 0))
     
     conn.commit()
     conn.close()
@@ -395,9 +405,9 @@ init_db()
 # Helper functions
 def get_payment_approval_flow(total_cost):
     """Determine approval flow based on total cost"""
-    if total_cost > 5000000:  # Above 5 million Naira
+    if total_cost > 5000000:  # Above 5 million NGN
         return ["Head of Administration", "Chief Compliance Officer", "Chief Risk Officer", "MD"]
-    else:  # 5 million Naira or less
+    else:  # 5 million NGN or less
         return ["Head of Administration", "Chief Compliance Officer", "Chief Risk Officer", "ED"]
 
 def calculate_travel_costs(grade, travel_type, duration_nights, destination_type="domestic"):
@@ -405,7 +415,7 @@ def calculate_travel_costs(grade, travel_type, duration_nights, destination_type
     grade_category = get_grade_category(grade)
     
     if travel_type == "local":
-        # Local travel policies
+        # Local travel policies in NGN
         local_rates = {
             "GM & ABOVE": {"hotel": 150000, "feeding": 25000},
             "AGM-DGM": {"hotel": 100000, "feeding": 20000},
@@ -419,7 +429,7 @@ def calculate_travel_costs(grade, travel_type, duration_nights, destination_type
         feeding_cost = policy["feeding"] * 3 * duration_nights
         return hotel_cost + feeding_cost
     else:
-        # International travel policies
+        # International travel policies in USD
         international_rates = {
             "GM & ABOVE": {"in_lieu": 700, "out_of_station": 50, "airport_taxi": 100},
             "AGM-DGM": {"in_lieu": 550, "out_of_station": 50, "airport_taxi": 100},
@@ -453,7 +463,6 @@ def update_budget(department, amount, transaction_type="expense"):
     c = conn.cursor()
     
     current_year = datetime.datetime.now().year
-    current_month = datetime.datetime.now().month
     
     c.execute('''SELECT * FROM budget 
                  WHERE department = ? AND budget_year = ?''', 
@@ -480,8 +489,17 @@ def update_budget(department, amount, transaction_type="expense"):
     conn.commit()
     conn.close()
 
-def generate_pdf_report(request_id):
-    """Generate PDF report for travel request"""
+def format_currency(amount, currency="NGN"):
+    """Format currency with proper symbol"""
+    if currency == "NGN":
+        return f"<span class='currency-ngn'>NGN {amount:,.2f}</span>"
+    elif currency == "USD":
+        return f"<span class='currency-usd'>USD {amount:,.2f}</span>"
+    else:
+        return f"{amount:,.2f}"
+
+def generate_html_report(request_id):
+    """Generate HTML report for travel request"""
     conn = sqlite3.connect('travel_app.db')
     
     # Get travel request details
@@ -503,88 +521,146 @@ def generate_pdf_report(request_id):
     
     conn.close()
     
-    # Create PDF
-    buffer = BytesIO()
-    c = canvas.Canvas(buffer, pagesize=letter)
-    width, height = letter
+    # Create HTML report
+    html_content = f"""
+    <html>
+    <head>
+        <style>
+            body {{ font-family: Arial, sans-serif; margin: 40px; }}
+            .header {{ text-align: center; border-bottom: 2px solid #D32F2F; padding-bottom: 20px; margin-bottom: 30px; }}
+            .company-name {{ color: #D32F2F; font-size: 24px; font-weight: bold; }}
+            .report-title {{ color: #424242; font-size: 20px; margin-top: 10px; }}
+            .section {{ margin-bottom: 30px; }}
+            .section-title {{ color: #D32F2F; font-size: 18px; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 15px; }}
+            .detail-row {{ display: flex; margin-bottom: 8px; }}
+            .detail-label {{ font-weight: bold; width: 200px; }}
+            .detail-value {{ flex: 1; }}
+            .table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
+            .table th {{ background-color: #f5f5f5; padding: 10px; text-align: left; border: 1px solid #ddd; }}
+            .table td {{ padding: 10px; border: 1px solid #ddd; }}
+            .footer {{ margin-top: 50px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #666; }}
+            .approved {{ color: #28a745; }}
+            .pending {{ color: #ffc107; }}
+            .rejected {{ color: #dc3545; }}
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <div class="company-name">PRUDENTIAL ZENITH LIFE INSURANCE</div>
+            <div class="report-title">TRAVEL REQUEST REPORT</div>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">Travel Request Details</div>
+            <div class="detail-row">
+                <div class="detail-label">Request ID:</div>
+                <div class="detail-value">#{request_data['id']}</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Employee Name:</div>
+                <div class="detail-value">{request_data['full_name']}</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Employee ID:</div>
+                <div class="detail-value">{request_data['employee_id']}</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Department:</div>
+                <div class="detail-value">{request_data['department']}</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Grade:</div>
+                <div class="detail-value">{request_data['grade']}</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Destination:</div>
+                <div class="detail-value">{request_data['destination']}</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Purpose:</div>
+                <div class="detail-value">{request_data['purpose']}</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Travel Type:</div>
+                <div class="detail-value">{request_data['travel_type'].title()}</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Dates:</div>
+                <div class="detail-value">{request_data['departure_date']} to {request_data['arrival_date']}</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Duration:</div>
+                <div class="detail-value">{request_data['duration_days']} days ({request_data['duration_nights']} nights)</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Status:</div>
+                <div class="detail-value"><span class="{request_data['status']}">{request_data['status'].upper()}</span></div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Payment Status:</div>
+                <div class="detail-value"><span class="{request_data.get('payment_status', 'pending')}">{request_data.get('payment_status', 'pending').upper()}</span></div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Approved Cost:</div>
+                <div class="detail-value">NGN {request_data.get('approved_cost', 0):,.2f}</div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">Bank Details for Payment</div>
+            <div class="detail-row">
+                <div class="detail-label">Bank Name:</div>
+                <div class="detail-value">{request_data.get('bank_name', 'Not provided')}</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Account Number:</div>
+                <div class="detail-value">{request_data.get('account_number', 'Not provided')}</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Account Name:</div>
+                <div class="detail-value">{request_data.get('account_name', 'Not provided')}</div>
+            </div>
+        </div>
+    """
     
-    # Header
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(50, height - 50, "PRUDENTIAL ZENITH LIFE INSURANCE")
-    c.setFont("Helvetica", 12)
-    c.drawString(50, height - 70, "Travel Request Report")
-    c.line(50, height - 80, width - 50, height - 80)
-    
-    # Request Details
-    y_position = height - 100
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(50, y_position, "Travel Request Details")
-    y_position -= 20
-    
-    details = [
-        ("Request ID:", str(request_data['id'])),
-        ("Employee:", request_data['full_name']),
-        ("Employee ID:", request_data['employee_id']),
-        ("Department:", request_data['department']),
-        ("Grade:", request_data['grade']),
-        ("Destination:", request_data['destination']),
-        ("Purpose:", request_data['purpose']),
-        ("Travel Type:", request_data['travel_type']),
-        ("Dates:", f"{request_data['departure_date']} to {request_data['arrival_date']}"),
-        ("Duration:", f"{request_data['duration_days']} days"),
-        ("Status:", request_data['status']),
-        ("Payment Status:", request_data.get('payment_status', 'pending')),
-        ("Approved Cost:", f"₦{request_data.get('approved_cost', 0):,.2f}"),
-    ]
-    
-    c.setFont("Helvetica", 10)
-    for label, value in details:
-        c.drawString(50, y_position, f"{label}")
-        c.drawString(150, y_position, f"{value}")
-        y_position -= 15
-    
-    # Bank Details
-    y_position -= 20
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(50, y_position, "Bank Details for Payment")
-    y_position -= 20
-    
-    bank_details = [
-        ("Bank Name:", request_data.get('bank_name', 'Not provided')),
-        ("Account Number:", request_data.get('account_number', 'Not provided')),
-        ("Account Name:", request_data.get('account_name', 'Not provided')),
-    ]
-    
-    c.setFont("Helvetica", 10)
-    for label, value in bank_details:
-        c.drawString(50, y_position, f"{label}")
-        c.drawString(150, y_position, f"{value}")
-        y_position -= 15
-    
-    # Approval History
     if not approval_history.empty:
-        y_position -= 20
-        c.setFont("Helvetica-Bold", 12)
-        c.drawString(50, y_position, "Approval History")
-        y_position -= 20
+        html_content += f"""
+        <div class="section">
+            <div class="section-title">Approval History</div>
+            <table class="table">
+                <tr>
+                    <th>Approver</th>
+                    <th>Status</th>
+                    <th>Comments</th>
+                    <th>Date/Time</th>
+                </tr>
+        """
         
         for _, row in approval_history.iterrows():
-            c.drawString(50, y_position, f"{row['approver_role']}: {row['status']}")
-            y_position -= 15
-            if pd.notna(row['comments']):
-                c.drawString(70, y_position, f"Comment: {row['comments'][:50]}...")
-                y_position -= 15
-            c.drawString(70, y_position, f"Date: {row['approved_at']}")
-            y_position -= 20
+            html_content += f"""
+                <tr>
+                    <td>{row['approver_role']}</td>
+                    <td><span class="{row['status']}">{row['status'].upper()}</span></td>
+                    <td>{row['comments'] or 'No comments'}</td>
+                    <td>{row['approved_at']}</td>
+                </tr>
+            """
+        
+        html_content += """
+            </table>
+        </div>
+        """
     
-    # Footer
-    c.setFont("Helvetica-Oblique", 8)
-    c.drawString(50, 30, f"Generated on: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    c.drawString(width - 150, 30, "Prudential Zenith Travel System")
+    html_content += f"""
+        <div class="footer">
+            <div>Generated on: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</div>
+            <div>Prudential Zenith Travel & Expense Management System</div>
+        </div>
+    </body>
+    </html>
+    """
     
-    c.save()
-    buffer.seek(0)
-    return buffer
+    return html_content
 
 def login():
     """Login page"""
@@ -829,6 +905,15 @@ def show_dashboard():
     
     st.markdown("---")
     
+    # Annual budget info
+    st.markdown(f"""
+    <div class="budget-card">
+        <h3 style="text-align: center; margin-bottom: 15px;">Annual Travel Budget</h3>
+        <h1 style="text-align: center; margin: 0;">NGN {ANNUAL_TRAVEL_BUDGET:,.0f}</h1>
+        <p style="text-align: center; margin-top: 10px; opacity: 0.9;">Approved budget for {datetime.datetime.now().year}</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
     # Recent activities
     col5, col6 = st.columns([2, 1])
     
@@ -855,7 +940,7 @@ def show_dashboard():
                     </div>
                     <p style="margin: 5px 0;"><strong>Purpose:</strong> {row['purpose']}</p>
                     <p style="margin: 5px 0;"><strong>Dates:</strong> {row['departure_date']} to {row['arrival_date']}</p>
-                    <p style="margin: 5px 0;"><strong>Cost:</strong> ₦{row.get('total_cost', 0):,.2f}</p>
+                    <p style="margin: 5px 0;"><strong>Cost:</strong> NGN {row.get('total_cost', 0):,.2f}</p>
                 </div>
                 """, unsafe_allow_html=True)
         else:
@@ -1026,9 +1111,15 @@ def travel_request_form():
                 approval_flow = ["Head of Administration", "Chief Compliance Officer", 
                                "Chief Risk Officer", "ED"]  # Default flow
                 
+                # Format cost based on travel type
+                if travel_type == "Local":
+                    cost_display = f"NGN {estimated_cost:,.2f}"
+                else:
+                    cost_display = f"USD {estimated_cost:,.2f}"
+                
                 st.info(f"""
                 **Approval Flow:** {' → '.join(approval_flow)}
-                **Estimated Cost:** ₦{estimated_cost:,.2f}
+                **Estimated Cost:** {cost_display}
                 """)
                 
                 # Insert travel request
@@ -1071,7 +1162,7 @@ def travel_request_form():
                 st.balloons()
 
 def travel_history():
-    """Travel history page with PDF download"""
+    """Travel history page with HTML report download"""
     st.markdown('<h1 class="sub-header">Travel History</h1>', unsafe_allow_html=True)
     
     conn = sqlite3.connect('travel_app.db')
@@ -1143,20 +1234,29 @@ def travel_history():
                     st.markdown(f"**Duration:** {row['duration_days']} days")
                 
                 with col_c:
-                    st.markdown(f"**Status:** <span class='status-badge status-{row['status']}'>{row['status'].upper()}</span>", 
+                    status_class = row['status']
+                    payment_class = row.get('payment_status', 'pending')
+                    st.markdown(f"**Status:** <span class='status-badge status-{status_class}'>{status_class.upper()}</span>", 
                                unsafe_allow_html=True)
-                    st.markdown(f"**Payment:** <span class='status-badge status-{row['payment_status']}'>{row['payment_status'].upper()}</span>", 
+                    st.markdown(f"**Payment:** <span class='status-badge status-{payment_class}'>{payment_class.upper()}</span>", 
                                unsafe_allow_html=True)
-                    st.markdown(f"**Cost:** ₦{row.get('approved_cost', 0):,.2f}")
+                    
+                    # Format cost based on travel type
+                    if row['travel_type'] == 'local':
+                        cost_display = f"NGN {row.get('approved_cost', 0):,.2f}"
+                    else:
+                        cost_display = f"USD {row.get('approved_cost', 0):,.2f}"
+                    
+                    st.markdown(f"**Cost:** {cost_display}")
                 
-                # Generate PDF button
-                if st.button(f"📄 Generate PDF Report", key=f"pdf_{row['id']}"):
-                    pdf_buffer = generate_pdf_report(row['id'])
+                # Generate HTML report button
+                if st.button(f"📄 Generate Report", key=f"report_{row['id']}"):
+                    html_content = generate_html_report(row['id'])
                     st.download_button(
-                        label="Download PDF",
-                        data=pdf_buffer,
-                        file_name=f"travel_request_{row['id']}.pdf",
-                        mime="application/pdf"
+                        label="Download HTML Report",
+                        data=html_content,
+                        file_name=f"travel_request_{row['id']}.html",
+                        mime="text/html"
                     )
     else:
         st.info("No travel records found")
@@ -1183,6 +1283,12 @@ def approvals_panel():
         st.markdown(f"### Pending Approvals ({len(pending_approvals)})")
         
         for _, row in pending_approvals.iterrows():
+            # Format cost based on travel type
+            if row['travel_type'] == 'local':
+                cost_display = f"NGN {row['total_cost']:,.2f}"
+            else:
+                cost_display = f"USD {row['total_cost']:,.2f}"
+            
             st.markdown(f"""
             <div class="card">
                 <h3 style="color: #D32F2F;">Travel Request #{row['id']}</h3>
@@ -1191,7 +1297,7 @@ def approvals_panel():
                 <p><strong>Destination:</strong> {row['destination']}</p>
                 <p><strong>Purpose:</strong> {row['purpose']}</p>
                 <p><strong>Dates:</strong> {row['departure_date']} to {row['arrival_date']}</p>
-                <p><strong>Estimated Cost:</strong> ₦{row['total_cost']:,.2f}</p>
+                <p><strong>Estimated Cost:</strong> {cost_display}</p>
             </div>
             """, unsafe_allow_html=True)
             
@@ -1302,7 +1408,7 @@ def payment_processing():
     
     if not approved_requests.empty:
         for _, row in approved_requests.iterrows():
-            with st.expander(f"#{row['id']} - {row['full_name']} - ₦{row.get('approved_cost', 0):,.2f}"):
+            with st.expander(f"#{row['id']} - {row['full_name']} - NGN {row.get('approved_cost', 0):,.2f}"):
                 
                 # Cost input form (for Head of Administration only)
                 if st.session_state.role == "Head of Administration":
@@ -1312,21 +1418,21 @@ def payment_processing():
                         col1, col2 = st.columns(2)
                         
                         with col1:
-                            flight_cost = st.number_input("Flight Cost (₦)", 
+                            flight_cost = st.number_input("Flight Cost (NGN)", 
                                                          min_value=0.0, 
                                                          value=0.0,
                                                          key=f"flight_{row['id']}")
-                            accommodation_cost = st.number_input("Accommodation Cost (₦)", 
+                            accommodation_cost = st.number_input("Accommodation Cost (NGN)", 
                                                                min_value=0.0, 
                                                                value=0.0,
                                                                key=f"accommodation_{row['id']}")
                         
                         with col2:
-                            transportation_cost = st.number_input("Transportation Cost (₦)", 
+                            transportation_cost = st.number_input("Transportation Cost (NGN)", 
                                                                 min_value=0.0, 
                                                                 value=0.0,
                                                                 key=f"transport_{row['id']}")
-                            other_costs = st.number_input("Other Costs (₦)", 
+                            other_costs = st.number_input("Other Costs (NGN)", 
                                                          min_value=0.0, 
                                                          value=0.0,
                                                          key=f"other_{row['id']}")
@@ -1336,7 +1442,7 @@ def payment_processing():
                         col3, col4 = st.columns(2)
                         
                         with col3:
-                            budgeted_cost = st.number_input("Budgeted Amount (₦)", 
+                            budgeted_cost = st.number_input("Budgeted Amount (NGN)", 
                                                            min_value=0.0, 
                                                            value=row.get('approved_cost', 0),
                                                            key=f"budgeted_{row['id']}")
@@ -1356,15 +1462,15 @@ def payment_processing():
                                 else:
                                     current_balance = 0
                             
-                            st.info(f"**Current Budget Balance:** ₦{current_balance:,.2f}")
+                            st.info(f"**Current Budget Balance:** NGN {current_balance:,.2f}")
                             
                             total_cost = flight_cost + accommodation_cost + transportation_cost + other_costs
                             new_balance = current_balance - total_cost
                             
                             if new_balance < 0:
-                                st.error(f"**New Balance:** ₦{new_balance:,.2f} (Over budget!)")
+                                st.error(f"**New Balance:** NGN {new_balance:,.2f} (Over budget!)")
                             else:
-                                st.success(f"**New Balance:** ₦{new_balance:,.2f}")
+                                st.success(f"**New Balance:** NGN {new_balance:,.2f}")
                         
                         admin_notes = st.text_area("Administration Notes", key=f"notes_{row['id']}")
                         
@@ -1458,17 +1564,17 @@ def budget_analytics():
         
         with col1:
             st.markdown('<div class="budget-card">', unsafe_allow_html=True)
-            st.metric("Total Budget", f"₦{total_budget:,.0f}")
+            st.metric("Total Budget", f"NGN {total_budget:,.0f}")
             st.markdown('</div>', unsafe_allow_html=True)
         
         with col2:
             st.markdown('<div class="budget-card">', unsafe_allow_html=True)
-            st.metric("YTD Actual", f"₦{total_actual:,.0f}")
+            st.metric("YTD Actual", f"NGN {total_actual:,.0f}")
             st.markdown('</div>', unsafe_allow_html=True)
         
         with col3:
             st.markdown('<div class="budget-card">', unsafe_allow_html=True)
-            st.metric("Total Variance", f"₦{total_variance:,.0f}")
+            st.metric("Total Variance", f"NGN {total_variance:,.0f}")
             st.markdown('</div>', unsafe_allow_html=True)
         
         with col4:
@@ -1483,7 +1589,8 @@ def budget_analytics():
             # Budget vs Actual by Department
             fig1 = px.bar(budget_data, x='department', y=['planned_budget', 'ytd_actual'],
                          title="Budget vs Actual by Department",
-                         barmode='group')
+                         barmode='group',
+                         labels={'value': 'Amount (NGN)', 'variable': 'Type'})
             st.plotly_chart(fig1, use_container_width=True)
         
         with col6:
@@ -1491,18 +1598,21 @@ def budget_analytics():
             fig2 = px.bar(budget_data, x='department', y='variance_percentage',
                          title="Variance Percentage by Department",
                          color='variance_percentage',
-                         color_continuous_scale='RdYlGn')
+                         color_continuous_scale='RdYlGn',
+                         labels={'variance_percentage': 'Variance %'})
             st.plotly_chart(fig2, use_container_width=True)
         
         # Detailed budget table
         st.markdown("### Detailed Budget Analysis")
-        st.dataframe(budget_data.style.format({
-            'planned_budget': '₦{:,.2f}',
-            'ytd_budget': '₦{:,.2f}',
-            'ytd_actual': '₦{:,.2f}',
-            'variance': '₦{:,.2f}',
+        styled_df = budget_data.style.format({
+            'planned_budget': 'NGN {:,.2f}',
+            'ytd_budget': 'NGN {:,.2f}',
+            'ytd_actual': 'NGN {:,.2f}',
+            'variance': 'NGN {:,.2f}',
             'variance_percentage': '{:.2f}%'
-        }))
+        })
+        
+        st.dataframe(styled_df)
         
         # Export option
         if st.button("📊 Export Budget Report"):
@@ -1543,12 +1653,12 @@ def budget_management():
             col1, col2 = st.columns(2)
             
             with col1:
-                planned_budget = st.number_input(f"Planned Budget (₦)", 
+                planned_budget = st.number_input(f"Planned Budget (NGN)", 
                                                 value=float(row['planned_budget']),
                                                 key=f"planned_{row['department']}")
             
             with col2:
-                ytd_budget = st.number_input(f"YTD Budget (₦)", 
+                ytd_budget = st.number_input(f"YTD Budget (NGN)", 
                                             value=float(row['ytd_budget']),
                                             key=f"ytd_{row['department']}")
             
@@ -1591,7 +1701,7 @@ def budget_management():
                                        list(range(1, 13)),
                                        format_func=lambda x: datetime.datetime(2000, x, 1).strftime('%B'))
         
-        planned_amount = st.number_input("Planned Budget Amount (₦)", 
+        planned_amount = st.number_input("Planned Budget Amount (NGN)", 
                                         min_value=0.0, 
                                         value=1000000.0)
         
@@ -1645,12 +1755,17 @@ def reports_dashboard():
             
             col1, col2, col3 = st.columns(3)
             with col1: st.metric("Total Travel Requests", total_travel)
-            with col2: st.metric("Total Cost", f"₦{total_cost:,.2f}")
-            with col3: st.metric("Average Cost", f"₦{avg_cost:,.2f}")
+            with col2: st.metric("Total Cost", f"NGN {total_cost:,.2f}")
+            with col3: st.metric("Average Cost", f"NGN {avg_cost:,.2f}")
             
             # Display data
-            st.dataframe(report_data[['id', 'full_name', 'department', 'destination', 
-                                     'purpose', 'status', 'approved_cost', 'payment_status']])
+            display_df = report_data[['id', 'full_name', 'department', 'destination', 
+                                     'purpose', 'status', 'approved_cost', 'payment_status']].copy()
+            
+            # Format currency
+            display_df['approved_cost'] = display_df['approved_cost'].apply(lambda x: f"NGN {x:,.2f}" if pd.notna(x) else "N/A")
+            
+            st.dataframe(display_df)
             
             # Export options
             col4, col5 = st.columns(2)
@@ -1691,11 +1806,16 @@ def reports_dashboard():
         
         if not dept_data.empty:
             fig = px.bar(dept_data, x='department', y='total_cost',
-                        title="Total Travel Cost by Department",
-                        color='total_cost')
+                        title="Total Travel Cost by Department (NGN)",
+                        color='total_cost',
+                        labels={'total_cost': 'Total Cost (NGN)'})
             st.plotly_chart(fig, use_container_width=True)
             
-            st.dataframe(dept_data)
+            # Format currency in table
+            styled_dept = dept_data.style.format({
+                'total_cost': 'NGN {:,.2f}'
+            })
+            st.dataframe(styled_dept)
     
     conn.close()
 
@@ -1718,9 +1838,30 @@ def executive_dashboard():
     paid_amount = pd.read_sql("SELECT SUM(amount) as total FROM payments WHERE status = 'completed'", conn).iloc[0]['total'] or 0
     
     with col1: st.metric("Total Requests", total_requests)
-    with col2: st.metric("Total Cost", f"₦{total_cost:,.2f}")
+    with col2: st.metric("Total Cost", f"NGN {total_cost:,.2f}")
     with col3: st.metric("Pending Approvals", pending_approvals)
-    with col4: st.metric("Paid Amount", f"₦{paid_amount:,.2f}")
+    with col4: st.metric("Paid Amount", f"NGN {paid_amount:,.2f}")
+    
+    # Annual budget utilization
+    st.markdown(f"""
+    <div class="budget-card">
+        <h3 style="text-align: center; margin-bottom: 15px;">Annual Budget Utilization</h3>
+        <div style="display: flex; justify-content: space-around; align-items: center;">
+            <div style="text-align: center;">
+                <h2 style="margin: 0;">NGN {ANNUAL_TRAVEL_BUDGET:,.0f}</h2>
+                <p>Total Budget</p>
+            </div>
+            <div style="text-align: center;">
+                <h2 style="margin: 0;">NGN {total_cost:,.0f}</h2>
+                <p>Utilized</p>
+            </div>
+            <div style="text-align: center;">
+                <h2 style="margin: 0;">{((total_cost/ANNUAL_TRAVEL_BUDGET)*100):.1f}%</h2>
+                <p>Utilization Rate</p>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
     
     # Recent high-value approvals needed
     st.markdown("### High-Value Approvals Pending")
@@ -1738,7 +1879,7 @@ def executive_dashboard():
         for _, row in high_value.iterrows():
             st.markdown(f"""
             <div class="card">
-                <h4 style="color: #D32F2F;">₦{row['total_cost']:,.2f} - {row['full_name']}</h4>
+                <h4 style="color: #D32F2F;">NGN {row['total_cost']:,.2f} - {row['full_name']}</h4>
                 <p><strong>Department:</strong> {row['department']}</p>
                 <p><strong>Destination:</strong> {row['destination']}</p>
                 <p><strong>Purpose:</strong> {row['purpose']}</p>
@@ -1760,7 +1901,8 @@ def executive_dashboard():
     if not budget_data.empty:
         fig = px.bar(budget_data, x='department', y='utilization_percent',
                     title="Budget Utilization Percentage by Department",
-                    color='utilization_percent')
+                    color='utilization_percent',
+                    labels={'utilization_percent': 'Utilization %'})
         st.plotly_chart(fig, use_container_width=True)
     
     conn.close()
