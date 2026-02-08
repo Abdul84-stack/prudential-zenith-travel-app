@@ -14,7 +14,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 from streamlit_option_menu import option_menu
 import time
-import pdfkit
 from fpdf import FPDF
 import tempfile
 from pathlib import Path
@@ -2035,3 +2034,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
