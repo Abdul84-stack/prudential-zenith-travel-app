@@ -144,10 +144,33 @@ st.markdown("""
         padding-top: 15px;
         border-top: 1px solid #e0e0e0;
     }
+    .approval-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: bold;
+        margin: 2px;
+    }
+    .pending-badge {
+        background-color: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+    }
+    .approved-badge {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+    .rejected-badge {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# Password hashing - MOVED TO TOP
+# Password hashing
 def make_hashes(password):
     return hashlib.sha256(str.encode(password)).hexdigest()
 
@@ -180,7 +203,7 @@ DEPARTMENTS = [
 GRADES = ["MD", "ED", "GM", "DGM", "AGM", "PM", "SM", "DM", "AM", "SO", "Officer", "EA"]
 
 ROLES = [
-    "MD", "ED", "Chief Commercial Officer", "Chief Agency Officer", 
+    "MD", "ED", "CFO/ED", "Chief Commercial Officer", "Chief Agency Officer", 
     "Chief Compliance Officer", "Chief Risk Officer", "National Sales Manager", 
     "Head of Department", "Team Lead", "Team Member"
 ]
@@ -245,7 +268,7 @@ INTERNATIONAL_POLICY = {
     "EA-SO": {"in_lieu": 275, "out_of_station": 50, "airport_taxi": 100, "total": 425}
 }
 
-# Database initialization - MOVED AFTER make_hashes()
+# Database initialization
 def init_db():
     conn = sqlite3.connect('travel_app.db')
     c = conn.cursor()
@@ -312,7 +335,7 @@ def init_db():
     # Create default users if they don't exist
     default_users = [
         ("CFO/Executive Director", "cfo_ed", "cfo@prudentialzenith.com", 
-         make_hashes("0123456"), "Finance and Investment", "ED", "ED"),
+         make_hashes("0123456"), "Finance and Investment", "ED", "CFO/ED"),
         ("Managing Director", "md", "md@prudentialzenith.com", 
          make_hashes("123456"), "Office of CEO", "MD", "MD"),
     ]
@@ -334,19 +357,27 @@ init_db()
 # Helper functions
 def get_approval_flow(department, grade, role):
     """Determine approval flow based on department and role"""
-    if department in ["Finance and Investment", "Administration"]:
+    # Finance department approval flow
+    if department == "Finance and Investment":
+        return ["CFO/ED", "MD"]
+    elif department == "Administration":
         return ["CFO/ED", "MD"]
     elif department in ["Internal Control and Risk", "Internal Audit"]:
         return ["Chief Risk Officer", "MD"]
     elif department == "HR":
         return ["MD"]
     elif department == "Agencies":
-        return ["Chief Agencies Officer", "MD"]
+        return ["Chief Agency Officer", "MD"]
     elif department == "Legal and Compliance":
         return ["Chief Compliance Officer", "MD"]
     elif department == "Corporate Sales":
         return ["Chief Commercial Officer", "MD"]
+    elif department == "Office of Executive Director":
+        return ["ED", "MD"]
+    elif department == "Office of CEO":
+        return ["MD"]
     else:
+        # Default approval flow for other departments
         return ["Head of Department", "MD"]
 
 def get_grade_category(grade):
@@ -380,6 +411,23 @@ def calculate_travel_costs(grade, travel_type, duration_nights):
     else:
         policy = INTERNATIONAL_POLICY[grade_category]
         return policy["total"] * duration_nights
+
+def get_role_display_name(role):
+    """Convert database role to display name"""
+    role_mapping = {
+        "MD": "MD",
+        "ED": "ED",
+        "CFO/ED": "CFO/ED",
+        "Chief Commercial Officer": "Chief Commercial Officer",
+        "Chief Agency Officer": "Chief Agency Officer",
+        "Chief Compliance Officer": "Chief Compliance Officer",
+        "Chief Risk Officer": "Chief Risk Officer",
+        "National Sales Manager": "National Sales Manager",
+        "Head of Department": "Head of Department",
+        "Team Lead": "Team Lead",
+        "Team Member": "Team Member"
+    }
+    return role_mapping.get(role, role)
 
 def login():
     """Login page with red and grey color scheme"""
@@ -564,9 +612,9 @@ def dashboard():
             default_index=0,
             styles={
                 "container": {"padding": "0!important", "background-color": "#fafafa"},
-                "icon": {"color": "#D32F2F", "font-size": "18px"}, 
+                "icon": {"color": #D32F2F, "font-size": "18px"}, 
                 "nav-link": {"font-size": "16px", "text-align": "left", "margin": "0px", "--hover-color": "#eee"},
-                "nav-link-selected": {"background-color": "#D32F2F", "color": "white"},
+                "nav-link-selected": {"background-color": #D32F2F, "color": "white"},
             }
         )
         
@@ -660,12 +708,17 @@ def show_dashboard():
                 'rejected': '#dc3545'
             }.get(status_class, '#616161')
             
+            # Get approval flow status
+            approval_flow = json.loads(row['approval_flow'])
+            current_approver = row['current_approver']
+            
             st.markdown(f"""
             <div class="card" style="border-left-color: {status_color};">
                 <h4 style="color: #D32F2F;">{row['destination']} ({row['travel_type'].title()})</h4>
                 <p><strong>Purpose:</strong> {row['purpose']}</p>
                 <p><strong>Dates:</strong> {row['departure_date']} to {row['arrival_date']}</p>
                 <p><strong>Status:</strong> <span style="color: {status_color}; font-weight:bold">{row['status'].upper()}</span></p>
+                <p><strong>Current Approver:</strong> {current_approver if current_approver else 'Completed'}</p>
             </div>
             """, unsafe_allow_html=True)
     else:
@@ -759,6 +812,9 @@ def travel_request_form():
                     st.session_state.role
                 )
                 
+                # Show approval flow to user
+                st.info(f"**Approval Flow:** {' → '.join(approval_flow)}")
+                
                 # Insert travel request
                 conn = sqlite3.connect('travel_app.db')
                 c = conn.cursor()
@@ -795,7 +851,7 @@ def travel_request_form():
                 conn.close()
                 
                 st.success("Travel request submitted successfully!")
-                st.info(f"Awaiting approval from: {approval_flow[0]}")
+                st.info(f"Awaiting approval from: **{approval_flow[0]}**")
                 
                 # Calculate estimated costs
                 grade_category = get_grade_category(st.session_state.grade)
@@ -857,6 +913,12 @@ def travel_history():
     
     if not travel_data.empty:
         for _, row in travel_data.iterrows():
+            status_badge_class = {
+                'pending': 'pending-badge',
+                'approved': 'approved-badge',
+                'rejected': 'rejected-badge'
+            }.get(row['status'], '')
+            
             with st.expander(f"{row['destination']} - {row['status'].upper()} ({row['created_at'][:10]})"):
                 col_a, col_b = st.columns(2)
                 with col_a:
@@ -868,12 +930,35 @@ def travel_history():
                     st.markdown(f"**Arrival:** {row['arrival_date']}")
                     st.markdown(f"**Duration:** {row['duration_days']} days")
                 
-                # Show approval flow
-                st.markdown("**Approval Flow:**")
+                # Show approval flow with status
+                st.markdown("**Approval Flow Status:**")
                 approval_flow = json.loads(row['approval_flow'])
+                
+                # Get approval status from approvals table
+                c = conn.cursor()
+                c.execute("SELECT approver_role, status FROM approvals WHERE request_id = ?", (row['id'],))
+                approval_statuses = c.fetchall()
+                approval_dict = dict(approval_statuses)
+                
                 for i, approver in enumerate(approval_flow):
-                    status_icon = "⏳" if i == 0 and row['status'] == 'pending' else "✅"
-                    st.markdown(f"{status_icon} {approver}")
+                    status = approval_dict.get(approver, 'pending' if i == 0 and row['status'] == 'pending' else 'not_started')
+                    
+                    if status == 'approved':
+                        icon = "✅"
+                        badge_class = "approved-badge"
+                    elif status == 'rejected':
+                        icon = "❌"
+                        badge_class = "rejected-badge"
+                    elif status == 'pending':
+                        icon = "⏳"
+                        badge_class = "pending-badge"
+                    else:
+                        icon = "⏭️"
+                        badge_class = ""
+                    
+                    st.markdown(f"""
+                    {icon} <span class="approval-badge {badge_class}">{approver}: {status.upper()}</span>
+                    """, unsafe_allow_html=True)
     
     else:
         st.info("No travel records found")
@@ -884,13 +969,20 @@ def approvals_panel():
     """Approvals panel for managers and approvers"""
     st.markdown('<h1 class="sub-header">Approvals Panel</h1>', unsafe_allow_html=True)
     
-    # Determine approver role based on user's position
+    # Get the user's role for filtering approvals
     approver_role = st.session_state.role
+    
+    # Check if user has approval privileges
+    if approver_role not in ["MD", "ED", "CFO/ED", "Chief Commercial Officer", "Chief Agency Officer", 
+                            "Chief Compliance Officer", "Chief Risk Officer", "National Sales Manager", 
+                            "Head of Department", "admin"]:
+        st.warning("You don't have approval privileges.")
+        return
     
     conn = sqlite3.connect('travel_app.db')
     
     # Get pending approvals for this approver
-    query = """SELECT tr.*, u.full_name, u.department, u.grade 
+    query = """SELECT tr.*, u.full_name, u.department, u.grade, u.email 
                FROM travel_requests tr 
                JOIN users u ON tr.username = u.username 
                WHERE tr.current_approver = ? AND tr.status = 'pending'"""
@@ -898,37 +990,90 @@ def approvals_panel():
     pending_approvals = pd.read_sql(query, conn, params=(approver_role,))
     
     if not pending_approvals.empty:
+        st.markdown(f"### You have {len(pending_approvals)} pending approval(s)")
+        
         for _, row in pending_approvals.iterrows():
             with st.container():
-                st.markdown(f"### Travel Request from {row['full_name']}")
+                st.markdown(f"### 📋 Travel Request #{row['id']}")
                 
+                # Request details
                 col1, col2 = st.columns(2)
                 with col1:
+                    st.markdown(f"**Requestor:** {row['full_name']}")
+                    st.markdown(f"**Department:** {row['department']}")
+                    st.markdown(f"**Grade:** {row['grade']}")
+                    st.markdown(f"**Email:** {row['email']}")
+                    st.markdown(f"**Travel Type:** {row['travel_type'].title()}")
+                    
+                with col2:
                     st.markdown(f"**Destination:** {row['destination']}")
                     st.markdown(f"**Purpose:** {row['purpose']}")
-                    st.markdown(f"**Department:** {row['department']}")
-                with col2:
-                    st.markdown(f"**Travel Type:** {row['travel_type']}")
-                    st.markdown(f"**Dates:** {row['departure_date']} to {row['arrival_date']}")
-                    st.markdown(f"**Grade:** {row['grade']}")
+                    st.markdown(f"**Mode of Travel:** {row['mode_of_travel']}")
+                    st.markdown(f"**Accommodation:** {row['accommodation_needed']}")
+                    st.markdown(f"**Duration:** {row['duration_days']} days ({row['duration_nights']} nights)")
                 
-                # Approval buttons
+                # Dates
+                col3, col4 = st.columns(2)
+                with col3:
+                    st.markdown(f"**Departure:** {row['departure_date']}")
+                with col4:
+                    st.markdown(f"**Arrival:** {row['arrival_date']}")
+                
+                st.markdown("---")
+                
+                # Approval actions
+                st.markdown("### Action Required")
                 col_a, col_b, col_c = st.columns(3)
+                
                 with col_a:
-                    if st.button(f"Approve", key=f"approve_{row['id']}"):
+                    if st.button(f"✅ Approve", key=f"approve_{row['id']}", type="primary", use_container_width=True):
                         update_approval_status(row['id'], "approved", approver_role)
+                        st.success(f"Request #{row['id']} approved!")
+                        time.sleep(2)
                         st.rerun()
+                
                 with col_b:
-                    if st.button(f"Reject", key=f"reject_{row['id']}"):
+                    if st.button(f"❌ Reject", key=f"reject_{row['id']}", type="secondary", use_container_width=True):
                         update_approval_status(row['id'], "rejected", approver_role)
+                        st.error(f"Request #{row['id']} rejected!")
+                        time.sleep(2)
                         st.rerun()
+                
                 with col_c:
-                    if st.button(f"Request Info", key=f"info_{row['id']}"):
-                        st.info("Request more information functionality to be implemented")
+                    if st.button(f"📋 Request More Info", key=f"info_{row['id']}", use_container_width=True):
+                        st.info(f"Request more information for Request #{row['id']}")
+                        # Implement request for information functionality here
                 
                 st.markdown("---")
     else:
-        st.info("No pending approvals")
+        st.info("No pending approvals for your role.")
+    
+    # Show approval history
+    st.markdown("### Approval History")
+    
+    # Get approvals made by this user
+    history_query = """SELECT a.*, tr.destination, tr.purpose, u.full_name as requestor 
+                      FROM approvals a 
+                      JOIN travel_requests tr ON a.request_id = tr.id 
+                      JOIN users u ON tr.username = u.username 
+                      WHERE a.approver_role = ? 
+                      ORDER BY a.approved_at DESC LIMIT 10"""
+    
+    approval_history = pd.read_sql(history_query, conn, params=(approver_role,))
+    
+    if not approval_history.empty:
+        for _, row in approval_history.iterrows():
+            status_badge = f"<span class='approval-badge {row['status']}-badge'>{row['status'].upper()}</span>"
+            st.markdown(f"""
+            **Request #{row['request_id']}** - {row['destination']} ({row['purpose']})
+            - Requestor: {row['requestor']}
+            - Decision: {status_badge}
+            - Date: {row['approved_at']}
+            - Comments: {row['comments'] or 'No comments'}
+            """, unsafe_allow_html=True)
+            st.markdown("---")
+    else:
+        st.info("No approval history found.")
     
     conn.close()
 
@@ -939,51 +1084,57 @@ def update_approval_status(request_id, status, approver_role):
     
     # Update approval record
     c.execute("""UPDATE approvals 
-                 SET status = ?, comments = ? 
+                 SET status = ?, comments = ?, approved_at = CURRENT_TIMESTAMP 
                  WHERE request_id = ? AND approver_role = ?""",
-             (status, "Approved via system", request_id, approver_role))
+             (status, f"Approved by {st.session_state.full_name}", request_id, approver_role))
     
     # Get approval flow
     c.execute("SELECT approval_flow FROM travel_requests WHERE id = ?", (request_id,))
-    approval_flow = json.loads(c.fetchone()[0])
-    
-    # Determine next approver or finalize
-    current_index = approval_flow.index(approver_role)
-    
-    if status == "approved":
-        if current_index < len(approval_flow) - 1:
-            next_approver = approval_flow[current_index + 1]
-            c.execute("""UPDATE travel_requests 
-                         SET current_approver = ? 
-                         WHERE id = ?""",
-                     (next_approver, request_id))
+    result = c.fetchone()
+    if result:
+        approval_flow = json.loads(result[0])
+        
+        # Determine next approver or finalize
+        try:
+            current_index = approval_flow.index(approver_role)
             
-            # Create next approval record
-            c.execute("""INSERT INTO approvals 
-                         (request_id, approver_role, status) 
-                         VALUES (?, ?, ?)""",
-                     (request_id, next_approver, "pending"))
-        else:
-            # Final approval - update travel request status
-            c.execute("""UPDATE travel_requests 
-                         SET status = 'approved', current_approver = NULL 
-                         WHERE id = ?""",
-                     (request_id,))
-            
-            # Create travel cost record for admin
-            grade = pd.read_sql("SELECT grade FROM users u JOIN travel_requests tr ON u.username = tr.username WHERE tr.id = ?", 
-                              conn, params=(request_id,)).iloc[0]['grade']
-            
-            c.execute("""INSERT INTO travel_costs 
-                         (request_id, grade, status) 
-                         VALUES (?, ?, ?)""",
-                     (request_id, grade, "pending"))
-    else:
-        # Rejected - update status
-        c.execute("""UPDATE travel_requests 
-                     SET status = 'rejected', current_approver = NULL 
-                     WHERE id = ?""",
-                 (request_id,))
+            if status == "approved":
+                if current_index < len(approval_flow) - 1:
+                    next_approver = approval_flow[current_index + 1]
+                    c.execute("""UPDATE travel_requests 
+                                 SET current_approver = ? 
+                                 WHERE id = ?""",
+                             (next_approver, request_id))
+                    
+                    # Create next approval record
+                    c.execute("""INSERT INTO approvals 
+                                 (request_id, approver_role, status) 
+                                 VALUES (?, ?, ?)""",
+                             (request_id, next_approver, "pending"))
+                else:
+                    # Final approval - update travel request status
+                    c.execute("""UPDATE travel_requests 
+                                 SET status = 'approved', current_approver = NULL 
+                                 WHERE id = ?""",
+                             (request_id,))
+                    
+                    # Create travel cost record for admin
+                    grade_result = pd.read_sql("SELECT grade FROM users u JOIN travel_requests tr ON u.username = tr.username WHERE tr.id = ?", 
+                                             conn, params=(request_id,))
+                    if not grade_result.empty:
+                        grade = grade_result.iloc[0]['grade']
+                        c.execute("""INSERT INTO travel_costs 
+                                     (request_id, grade, status) 
+                                     VALUES (?, ?, ?)""",
+                                 (request_id, grade, "pending"))
+            else:
+                # Rejected - update status
+                c.execute("""UPDATE travel_requests 
+                             SET status = 'rejected', current_approver = NULL 
+                             WHERE id = ?""",
+                         (request_id,))
+        except ValueError:
+            st.error(f"Approver role {approver_role} not found in approval flow")
     
     conn.commit()
     conn.close()
