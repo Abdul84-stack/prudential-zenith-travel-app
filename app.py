@@ -266,13 +266,24 @@ DEPARTMENTS = [
 
 GRADES = ["MD", "ED", "GM", "DGM", "AGM", "PM", "SM", "DM", "AM", "SO", "Officer", "EA"]
 
-ROLES = [
-    "MD", "ED", "CFO/ED", "Chief Commercial Officer", "Chief Agency Officer", 
-    "Chief Compliance Officer", "Chief Risk Officer", "National Sales Manager", 
-    "Head of Department", "Team Lead", "Team Member", "Head of Administration",
-    "Payables Officer"
+default_users = [
+    ("CFO/Executive Director", "cfo_ed", "cfo@prudentialzenith.com", 
+     make_hashes("0123456"), "Finance and Investment", "ED", "CFO/ED"),
+    ("Managing Director", "md", "md@prudentialzenith.com", 
+     make_hashes("123456"), "Office of CEO", "MD", "MD"),
+    ("Chief Commercial Officer", "chief_commercial", "commercial@prudentialzenith.com",
+     make_hashes("123456"), "Corporate Sales", "DGM", "Chief Commercial Officer"),
+    ("Chief Agency Officer", "chief_agency", "agency@prudentialzenith.com",
+     make_hashes("123456"), "Agencies", "DGM", "Chief Agency Officer"),
+    ("Chief Compliance Officer", "chief_compliance", "compliance@prudentialzenith.com",
+     make_hashes("123456"), "Legal and Compliance", "DGM", "Chief Compliance Officer"),
+    ("Chief Risk Officer", "chief_risk", "risk@prudentialzenith.com",
+     make_hashes("123456"), "Internal Control and Risk", "DGM", "Chief Risk Officer"),
+    ("Payables Officer", "payables", "payables@prudentialzenith.com",
+     make_hashes("123456"), "Finance and Investment", "Officer", "Payables Officer"),
+    ("Executive Director", "ed", "ed@prudentialzenith.com",
+     make_hashes("123456"), "Office of Executive Director", "ED", "ED")
 ]
-
 # Updated Nigerian states with more cities
 NIGERIAN_STATES = {
     "Abia": ["Aba", "Umuahia", "Arochukwu", "Ohafia"],
@@ -470,20 +481,24 @@ def init_db():
                   FOREIGN KEY (cost_id) REFERENCES travel_costs(id))''')
     
     # Create default users if they don't exist
-    default_users = [
-        ("CFO/Executive Director", "cfo_ed", "cfo@prudentialzenith.com", 
-         make_hashes("0123456"), "Finance and Investment", "ED", "CFO/ED"),
-        ("Managing Director", "md", "md@prudentialzenith.com", 
-         make_hashes("123456"), "Office of CEO", "MD", "MD"),
-        ("Head of Administration", "head_admin", "head.admin@prudentialzenith.com",
-         make_hashes("123456"), "Administration", "DGM", "Head of Administration"),
-        ("Chief Compliance Officer", "chief_compliance", "compliance@prudentialzenith.com",
-         make_hashes("123456"), "Legal and Compliance", "DGM", "Chief Compliance Officer"),
-        ("Chief Risk Officer", "chief_risk", "risk@prudentialzenith.com",
-         make_hashes("123456"), "Internal Control and Risk", "DGM", "Chief Risk Officer"),
-        ("Payables Officer", "payables", "payables@prudentialzenith.com",
-         make_hashes("123456"), "Finance and Investment", "Officer", "Payables Officer")
-    ]
+default_users = [
+    ("CFO/Executive Director", "cfo_ed", "cfo@prudentialzenith.com", 
+     make_hashes("0123456"), "Finance and Investment", "ED", "CFO/ED"),
+    ("Managing Director", "md", "md@prudentialzenith.com", 
+     make_hashes("123456"), "Office of CEO", "MD", "MD"),
+    ("Chief Commercial Officer", "chief_commercial", "commercial@prudentialzenith.com",
+     make_hashes("123456"), "Corporate Sales", "DGM", "Chief Commercial Officer"),
+    ("Chief Agency Officer", "chief_agency", "agency@prudentialzenith.com",
+     make_hashes("123456"), "Agencies", "DGM", "Chief Agency Officer"),
+    ("Chief Compliance Officer", "chief_compliance", "compliance@prudentialzenith.com",
+     make_hashes("123456"), "Legal and Compliance", "DGM", "Chief Compliance Officer"),
+    ("Chief Risk Officer", "chief_risk", "risk@prudentialzenith.com",
+     make_hashes("123456"), "Internal Control and Risk", "DGM", "Chief Risk Officer"),
+    ("Payables Officer", "payables", "payables@prudentialzenith.com",
+     make_hashes("123456"), "Finance and Investment", "Officer", "Payables Officer"),
+    ("Executive Director", "ed", "ed@prudentialzenith.com",
+     make_hashes("123456"), "Office of Executive Director", "ED", "ED")
+]
     
     for user in default_users:
         try:
@@ -506,27 +521,50 @@ init_db()
 
 def get_approval_flow(department, grade, role):
     """Determine approval flow based on department and role"""
-    if department == "Finance and Investment":
-        return ["Head of Department", "CFO/ED", "MD"]
+    
+    # HR Department: Direct MD approval only
+    if department == "HR":
+        return ["MD"]
+    
+    # Finance and Investment Department: CFO/ED then MD
+    elif department == "Finance and Investment":
+        return ["CFO/ED", "MD"]
+    
+    # Administration Department: CFO/ED then MD  
     elif department == "Administration":
-        return ["Head of Department", "CFO/ED", "MD"]
-    elif department in ["Internal Control and Risk", "Internal Audit"]:
-        return ["Head of Department", "Chief Risk Officer", "MD"]
-    elif department == "HR":
-        return ["Head of Department", "MD"]
-    elif department == "Agencies":
-        return ["Head of Department", "Chief Agency Officer", "MD"]
+        return ["CFO/ED", "MD"]
+    
+    # Internal Control and Risk Department: CRO then MD
+    elif department == "Internal Control and Risk":
+        return ["Chief Risk Officer", "MD"]
+    
+    # Internal Audit Department: CRO then MD
+    elif department == "Internal Audit":
+        return ["Chief Risk Officer", "MD"]
+    
+    # Legal and Compliance Department: CCO then MD
     elif department == "Legal and Compliance":
-        return ["Head of Department", "Chief Compliance Officer", "MD"]
+        return ["Chief Compliance Officer", "MD"]
+    
+    # Corporate Sales Department: CCO then MD (Chief Commercial Officer)
     elif department == "Corporate Sales":
-        return ["Head of Department", "Chief Commercial Officer", "MD"]
-    elif department == "Office of Executive Director":
-        return ["Head of Department", "ED", "MD"]
+        return ["Chief Commercial Officer", "MD"]
+    
+    # Agencies Department: CAO then MD (Chief Agency Officer)
+    elif department == "Agencies":
+        return ["Chief Agency Officer", "MD"]
+    
+    # Office of CEO: Direct MD approval
     elif department == "Office of CEO":
-        return ["Head of Department", "MD"]
+        return ["MD"]
+    
+    # Office of Executive Director: ED then MD
+    elif department == "Office of Executive Director":
+        return ["ED", "MD"]
+    
+    # Default for other departments: Head of Department then MD
     else:
-        # Default for other departments
-        return ["Head of Department", "CFO/ED", "MD"]
+        return ["Head of Department", "MD"]
 
 def get_payment_approval_flow(total_amount):
     """Get payment approval flow based on amount"""
@@ -668,45 +706,11 @@ def get_pending_approvals_for_role(role):
     """Get all pending approvals for a specific role"""
     conn = sqlite3.connect('travel_app.db')
     
-    # For CFO/ED role
-    if role == "CFO/ED":
-        query = """
-            SELECT tr.*, u.full_name, u.department, u.grade 
-            FROM travel_requests tr 
-            JOIN users u ON tr.user_id = u.id 
-            WHERE tr.status = 'pending' 
-            AND (tr.current_approver = 'CFO/ED' OR tr.current_approver IS NULL)
-            ORDER BY tr.created_at DESC
-        """
-        approvals = pd.read_sql(query, conn, params=())
+    # For roles that appear as first approvers
+    first_approver_roles = ["CFO/ED", "Chief Risk Officer", "Chief Compliance Officer", 
+                           "Chief Commercial Officer", "Chief Agency Officer", "ED", "MD"]
     
-    # For MD role
-    elif role == "MD":
-        query = """
-            SELECT tr.*, u.full_name, u.department, u.grade 
-            FROM travel_requests tr 
-            JOIN users u ON tr.user_id = u.id 
-            WHERE tr.status = 'pending' 
-            AND (tr.current_approver = 'MD' OR tr.current_approver IS NULL)
-            ORDER BY tr.created_at DESC
-        """
-        approvals = pd.read_sql(query, conn, params=())
-    
-    # For Head of Department role
-    elif role == "Head of Department":
-        query = """
-            SELECT tr.*, u.full_name, u.department, u.grade 
-            FROM travel_requests tr 
-            JOIN users u ON tr.user_id = u.id 
-            WHERE tr.status = 'pending' 
-            AND (tr.current_approver = 'Head of Department' OR tr.current_approver IS NULL)
-            AND u.department = ?
-            ORDER BY tr.created_at DESC
-        """
-        approvals = pd.read_sql(query, conn, params=(st.session_state.department,))
-    
-    # For other specific roles
-    else:
+    if role in first_approver_roles:
         query = """
             SELECT tr.*, u.full_name, u.department, u.grade 
             FROM travel_requests tr 
@@ -716,6 +720,19 @@ def get_pending_approvals_for_role(role):
             ORDER BY tr.created_at DESC
         """
         approvals = pd.read_sql(query, conn, params=(role,))
+    
+    else:
+        # For other roles (including Head of Department)
+        query = """
+            SELECT tr.*, u.full_name, u.department, u.grade 
+            FROM travel_requests tr 
+            JOIN users u ON tr.user_id = u.id 
+            WHERE tr.status = 'pending' 
+            AND (tr.current_approver = ? OR tr.current_approver IS NULL)
+            AND u.department = ?
+            ORDER BY tr.created_at DESC
+        """
+        approvals = pd.read_sql(query, conn, params=(role, st.session_state.department,))
     
     conn.close()
     return approvals
@@ -734,25 +751,34 @@ def process_approval(request_id, action, comments=""):
         return False, "Request not found"
     
     # Get approval flow
-    approval_flow = json.loads(request[15])  # Column 15 is approval_flow
-    current_approver = request[13]  # Column 13 is current_approver
-    
-    # Find current approver index
     try:
-        current_index = approval_flow.index(current_approver) if current_approver else -1
-    except ValueError:
+        approval_flow = json.loads(request[15])  # Column 15 is approval_flow
+        current_approver = request[13]  # Column 13 is current_approver
+    except:
         conn.close()
-        return False, f"Approval flow error: {current_approver} not found in {approval_flow}"
+        return False, "Invalid approval flow data"
     
     if action == "approve":
-        # Move to next approver or complete
-        if current_index + 1 < len(approval_flow):
-            next_approver = approval_flow[current_index + 1]
-            new_status = "pending"
-            current_approver = next_approver
-        else:
+        # For single-approver flows (like HR to MD)
+        if len(approval_flow) == 1:
             new_status = "approved"
             current_approver = None
+        else:
+            # Find current approver index
+            try:
+                current_index = approval_flow.index(current_approver) if current_approver else 0
+            except ValueError:
+                # If current approver not in flow, start from first
+                current_index = 0
+            
+            # Move to next approver or complete
+            if current_index + 1 < len(approval_flow):
+                next_approver = approval_flow[current_index + 1]
+                new_status = "pending"
+                current_approver = next_approver
+            else:
+                new_status = "approved"
+                current_approver = None
         
         # Update request
         c.execute("""
@@ -2259,6 +2285,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
