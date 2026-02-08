@@ -481,24 +481,24 @@ def init_db():
                   FOREIGN KEY (cost_id) REFERENCES travel_costs(id))''')
     
     # Create default users if they don't exist
-default_users = [
-    ("CFO/Executive Director", "cfo_ed", "cfo@prudentialzenith.com", 
-     make_hashes("0123456"), "Finance and Investment", "ED", "CFO/ED"),
-    ("Managing Director", "md", "md@prudentialzenith.com", 
-     make_hashes("123456"), "Office of CEO", "MD", "MD"),
-    ("Chief Commercial Officer", "chief_commercial", "commercial@prudentialzenith.com",
-     make_hashes("123456"), "Corporate Sales", "DGM", "Chief Commercial Officer"),
-    ("Chief Agency Officer", "chief_agency", "agency@prudentialzenith.com",
-     make_hashes("123456"), "Agencies", "DGM", "Chief Agency Officer"),
-    ("Chief Compliance Officer", "chief_compliance", "compliance@prudentialzenith.com",
-     make_hashes("123456"), "Legal and Compliance", "DGM", "Chief Compliance Officer"),
-    ("Chief Risk Officer", "chief_risk", "risk@prudentialzenith.com",
-     make_hashes("123456"), "Internal Control and Risk", "DGM", "Chief Risk Officer"),
-    ("Payables Officer", "payables", "payables@prudentialzenith.com",
-     make_hashes("123456"), "Finance and Investment", "Officer", "Payables Officer"),
-    ("Executive Director", "ed", "ed@prudentialzenith.com",
-     make_hashes("123456"), "Office of Executive Director", "ED", "ED")
-]
+    default_users = [
+        ("CFO/Executive Director", "cfo_ed", "cfo@prudentialzenith.com", 
+         make_hashes("0123456"), "Finance and Investment", "ED", "CFO/ED"),
+        ("Managing Director", "md", "md@prudentialzenith.com", 
+         make_hashes("123456"), "Office of CEO", "MD", "MD"),
+        ("Chief Commercial Officer", "chief_commercial", "commercial@prudentialzenith.com",
+         make_hashes("123456"), "Corporate Sales", "DGM", "Chief Commercial Officer"),
+        ("Chief Agency Officer", "chief_agency", "agency@prudentialzenith.com",
+         make_hashes("123456"), "Agencies", "DGM", "Chief Agency Officer"),
+        ("Chief Compliance Officer", "chief_compliance", "compliance@prudentialzenith.com",
+         make_hashes("123456"), "Legal and Compliance", "DGM", "Chief Compliance Officer"),
+        ("Chief Risk Officer", "chief_risk", "risk@prudentialzenith.com",
+         make_hashes("123456"), "Internal Control and Risk", "DGM", "Chief Risk Officer"),
+        ("Payables Officer", "payables", "payables@prudentialzenith.com",
+         make_hashes("123456"), "Finance and Investment", "Officer", "Payables Officer"),
+        ("Executive Director", "ed", "ed@prudentialzenith.com",
+         make_hashes("123456"), "Office of Executive Director", "ED", "ED")
+    ]
     
     for user in default_users:
         try:
@@ -2285,6 +2285,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
