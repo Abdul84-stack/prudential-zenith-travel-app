@@ -14,6 +14,9 @@ import plotly.express as px
 import plotly.graph_objects as go
 from streamlit_option_menu import option_menu
 import time
+import pdfkit
+from fpdf import FPDF
+import tempfile
 
 # Page configuration
 st.set_page_config(
@@ -23,7 +26,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS with RED and GREY color scheme
+# Custom CSS with enhanced UI/UX
 st.markdown("""
 <style>
     /* Main container styling */
@@ -40,7 +43,6 @@ st.markdown("""
         color: #616161; /* Grey color */
         margin-top: 1rem;
         margin-bottom: 1rem;
-        text-align: center;
     }
     .login-container {
         background-color: #f5f5f5; /* Light grey background */
@@ -80,14 +82,6 @@ st.markdown("""
         transform: translateY(-2px);
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     }
-    .login-buttons-container {
-        display: flex;
-        gap: 10px;
-        margin-top: 20px;
-    }
-    .login-buttons-container .stButton {
-        flex: 1;
-    }
     .card {
         background-color: #ffffff;
         border-radius: 10px;
@@ -107,6 +101,10 @@ st.markdown("""
     .rejected {
         background-color: #f8d7da;
         border-left: 5px solid #dc3545;
+    }
+    .paid {
+        background-color: #d1ecf1;
+        border-left: 5px solid #17a2b8;
     }
     .profile-img {
         border-radius: 50%;
@@ -144,15 +142,45 @@ st.markdown("""
         padding-top: 15px;
         border-top: 1px solid #e0e0e0;
     }
+    .metric-card {
+        background: linear-gradient(135deg, #f5f5f5, #ffffff);
+        border-radius: 10px;
+        padding: 20px;
+        margin: 10px;
+        border: 1px solid #e0e0e0;
+        text-align: center;
+    }
+    .tab-content {
+        padding: 20px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        margin-top: 10px;
+    }
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 2px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 50px;
+        white-space: pre-wrap;
+        background-color: #f0f0f0;
+        border-radius: 5px 5px 0px 0px;
+        gap: 1px;
+        padding-top: 10px;
+        padding-bottom: 10px;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #D32F2F;
+        color: white;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# Database initialization
+# Database initialization with new tables
 def init_db():
     conn = sqlite3.connect('travel_app.db')
     c = conn.cursor()
     
-    # Users table
+    # Users table with additional fields
     c.execute('''CREATE TABLE IF NOT EXISTS users
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   full_name TEXT,
@@ -162,6 +190,10 @@ def init_db():
                   department TEXT,
                   grade TEXT,
                   role TEXT,
+                  employee_id TEXT,
+                  bank_name TEXT,
+                  account_number TEXT,
+                  account_name TEXT,
                   profile_pic BLOB,
                   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
     
@@ -169,8 +201,10 @@ def init_db():
     c.execute('''CREATE TABLE IF NOT EXISTS travel_requests
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   username TEXT,
+                  employee_id TEXT,
                   travel_type TEXT,
                   destination TEXT,
+                  state TEXT,
                   city TEXT,
                   purpose TEXT,
                   mode_of_travel TEXT,
@@ -185,45 +219,82 @@ def init_db():
                   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                   FOREIGN KEY (username) REFERENCES users(username))''')
     
-    # Travel costs table
+    # Travel costs table with budget fields
     c.execute('''CREATE TABLE IF NOT EXISTS travel_costs
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   request_id INTEGER,
                   grade TEXT,
                   per_diem_amount REAL,
                   flight_cost REAL,
+                  budgeted_cost REAL,
+                  budget_balance REAL,
                   total_cost REAL,
                   supporting_docs BLOB,
                   admin_notes TEXT,
                   status TEXT DEFAULT 'pending',
                   approval_flow TEXT,
                   current_approver TEXT,
+                  payment_status TEXT DEFAULT 'pending',
+                  paid_by TEXT,
+                  paid_at TIMESTAMP,
                   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                   FOREIGN KEY (request_id) REFERENCES travel_requests(id))''')
     
-    # Approvals table
+    # Approvals table for payment approval chain
     c.execute('''CREATE TABLE IF NOT EXISTS approvals
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   request_id INTEGER,
+                  cost_id INTEGER,
                   approver_role TEXT,
+                  approver_name TEXT,
                   status TEXT,
                   comments TEXT,
                   approved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                  FOREIGN KEY (request_id) REFERENCES travel_requests(id))''')
+                  FOREIGN KEY (request_id) REFERENCES travel_requests(id),
+                  FOREIGN KEY (cost_id) REFERENCES travel_costs(id))''')
     
-    # Create default users if they don't exist
+    # Budget table for analytics
+    c.execute('''CREATE TABLE IF NOT EXISTS budgets
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  department TEXT,
+                  year INTEGER,
+                  month INTEGER,
+                  planned_budget REAL,
+                  actual_spent REAL,
+                  ytd_budget REAL,
+                  ytd_actual REAL,
+                  variance REAL,
+                  variance_percentage REAL,
+                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+    
+    # Create default users with new roles
     default_users = [
         ("CFO/Executive Director", "cfo_ed", "cfo@prudentialzenith.com", 
-         make_hashes("0123456"), "Finance and Investment", "ED", "ED"),
+         make_hashes("0123456"), "Finance and Investment", "ED", "ED", "ED001",
+         "Zenith Bank", "1234567890", "CFO ED", None),
         ("Managing Director", "md", "md@prudentialzenith.com", 
-         make_hashes("123456"), "Office of CEO", "MD", "MD"),
+         make_hashes("123456"), "Office of CEO", "MD", "MD", "MD001",
+         "Zenith Bank", "0987654321", "Managing Director", None),
+        ("Head of Administration", "head_admin", "head.admin@prudentialzenith.com",
+         make_hashes("123456"), "Administration", "DGM", "Head of Administration", "HA001",
+         "Zenith Bank", "1122334455", "Head Admin", None),
+        ("Chief Compliance Officer", "chief_compliance", "compliance@prudentialzenith.com",
+         make_hashes("123456"), "Legal and Compliance", "DGM", "Chief Compliance Officer", "CCO001",
+         "Zenith Bank", "2233445566", "Chief Compliance", None),
+        ("Chief Risk Officer", "chief_risk", "risk@prudentialzenith.com",
+         make_hashes("123456"), "Internal Control and Risk", "DGM", "Chief Risk Officer", "CRO001",
+         "Zenith Bank", "3344556677", "Chief Risk", None),
+        ("Payables Officer", "payables", "payables@prudentialzenith.com",
+         make_hashes("123456"), "Finance and Investment", "AM", "Payables", "PAY001",
+         "Zenith Bank", "4455667788", "Payables Officer", None),
     ]
     
     for user in default_users:
         try:
             c.execute('''INSERT OR IGNORE INTO users 
-                       (full_name, username, email, password, department, grade, role) 
-                       VALUES (?, ?, ?, ?, ?, ?, ?)''', user)
+                       (full_name, username, email, password, department, grade, role, 
+                        employee_id, bank_name, account_number, account_name, profile_pic) 
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', user)
         except:
             pass
     
@@ -253,6 +324,8 @@ if 'grade' not in st.session_state:
     st.session_state.grade = ''
 if 'full_name' not in st.session_state:
     st.session_state.full_name = ''
+if 'employee_id' not in st.session_state:
+    st.session_state.employee_id = ''
 
 # Departments and Grades
 DEPARTMENTS = [
@@ -268,48 +341,49 @@ GRADES = ["MD", "ED", "GM", "DGM", "AGM", "PM", "SM", "DM", "AM", "SO", "Officer
 ROLES = [
     "MD", "ED", "Chief Commercial Officer", "Chief Agency Officer", 
     "Chief Compliance Officer", "Chief Risk Officer", "National Sales Manager", 
-    "Head of Department", "Team Lead", "Team Member"
+    "Head of Department", "Team Lead", "Team Member", "Head of Administration",
+    "Payables"
 ]
 
-# Nigerian states and major cities
+# Nigerian states and ALL cities
 NIGERIAN_STATES = {
-    "Abia": ["Aba", "Umuahia"],
-    "Adamawa": ["Yola", "Mubi", "Jimeta"],
-    "Akwa Ibom": ["Uyo", "Eket", "Ikot Ekpene"],
-    "Anambra": ["Awka", "Onitsha", "Nnewi"],
-    "Bauchi": ["Bauchi"],
-    "Bayelsa": ["Yenagoa"],
-    "Benue": ["Makurdi", "Gboko"],
-    "Borno": ["Maiduguri"],
-    "Cross River": ["Calabar"],
-    "Delta": ["Asaba", "Warri"],
-    "Ebonyi": ["Abakaliki"],
-    "Edo": ["Benin City"],
-    "Ekiti": ["Ado-Ekiti"],
-    "Enugu": ["Enugu"],
-    "FCT": ["Abuja"],
-    "Gombe": ["Gombe"],
-    "Imo": ["Owerri"],
-    "Jigawa": ["Dutse"],
-    "Kaduna": ["Kaduna"],
-    "Kano": ["Kano"],
-    "Katsina": ["Katsina"],
-    "Kebbi": ["Birnin Kebbi"],
-    "Kogi": ["Lokoja"],
-    "Kwara": ["Ilorin"],
-    "Lagos": ["Lagos", "Ikeja"],
-    "Nasarawa": ["Lafia"],
-    "Niger": ["Minna"],
-    "Ogun": ["Abeokuta"],
-    "Ondo": ["Akure"],
-    "Osun": ["Osogbo"],
-    "Oyo": ["Ibadan"],
-    "Plateau": ["Jos"],
-    "Rivers": ["Port Harcourt"],
-    "Sokoto": ["Sokoto"],
-    "Taraba": ["Jalingo"],
-    "Yobe": ["Damaturu"],
-    "Zamfara": ["Gusau"]
+    "Abia": ["Aba", "Umuahia", "Arochukwu", "Ohafia", "Bende", "Isuikwuato"],
+    "Adamawa": ["Yola", "Mubi", "Jimeta", "Ganye", "Numan", "Michika", "Mayo-Belwa"],
+    "Akwa Ibom": ["Uyo", "Eket", "Ikot Ekpene", "Oron", "Abak", "Ikot Abasi", "Etinan"],
+    "Anambra": ["Awka", "Onitsha", "Nnewi", "Ekulu", "Agulu", "Ihiala", "Ozubulu"],
+    "Bauchi": ["Bauchi", "Azare", "Jama'are", "Katagum", "Misau", "Ningi"],
+    "Bayelsa": ["Yenagoa", "Brass", "Ogbia", "Sagbama", "Nembe", "Ekeremor"],
+    "Benue": ["Makurdi", "Gboko", "Otukpo", "Katsina-Ala", "Zaki Biam", "Adikpo"],
+    "Borno": ["Maiduguri", "Bama", "Dikwa", "Askira", "Biu", "Monguno"],
+    "Cross River": ["Calabar", "Ikom", "Ogoja", "Obudu", "Ugep", "Akamkpa"],
+    "Delta": ["Asaba", "Warri", "Sapele", "Agbor", "Ughelli", "Burutu", "Koko"],
+    "Ebonyi": ["Abakaliki", "Afikpo", "Onueke", "Ezza", "Ishielu", "Ikwo"],
+    "Edo": ["Benin City", "Auchi", "Ekpoma", "Irrua", "Ubiaja", "Igueben"],
+    "Ekiti": ["Ado-Ekiti", "Ikere", "Ise", "Emure", "Aramoko", "Igbara Odo"],
+    "Enugu": ["Enugu", "Nsukka", "Agbani", "Awgu", "Udi", "Oji River"],
+    "FCT": ["Abuja", "Gwagwalada", "Kuje", "Kubwa", "Lugbe", "Maitama"],
+    "Gombe": ["Gombe", "Bajoga", "Kaltungo", "Dukku", "Deba", "Nafada"],
+    "Imo": ["Owerri", "Orlu", "Okigwe", "Mgbidi", "Oguta", "Awo Omamma"],
+    "Jigawa": ["Dutse", "Hadejia", "Birnin Kudu", "Gumel", "Kazaure", "Ringim"],
+    "Kaduna": ["Kaduna", "Zaria", "Kafanchan", "Makarfi", "Saminaka", "Kagoro"],
+    "Kano": ["Kano", "Bichi", "Dawakin Tofa", "Gaya", "Rano", "Wudil"],
+    "Katsina": ["Katsina", "Daura", "Funtua", "Malumfashi", "Dutsinma", "Kankia"],
+    "Kebbi": ["Birnin Kebbi", "Argungu", "Yauri", "Zuru", "Kamba", "Bagudo"],
+    "Kogi": ["Lokoja", "Okene", "Idah", "Kabba", "Ajaokuta", "Ankpa"],
+    "Kwara": ["Ilorin", "Offa", "Omu-Aran", "Jebba", "Lafiagi", "Patigi"],
+    "Lagos": ["Lagos", "Ikeja", "Ikorodu", "Badagry", "Epe", "Lekki", "Victoria Island"],
+    "Nasarawa": ["Lafia", "Keffi", "Akwanga", "Nasarawa", "Karu", "Doma"],
+    "Niger": ["Minna", "Bida", "Suleja", "Kontagora", "Lapai", "Agaie"],
+    "Ogun": ["Abeokuta", "Sagamu", "Ijebu Ode", "Ilaro", "Ota", "Ifo"],
+    "Ondo": ["Akure", "Ondo", "Owo", "Okitipupa", "Irele", "Idanre"],
+    "Osun": ["Osogbo", "Ile-Ife", "Ilesa", "Ede", "Iwo", "Ikire"],
+    "Oyo": ["Ibadan", "Ogbomoso", "Oyo", "Iseyin", "Saki", "Kishi"],
+    "Plateau": ["Jos", "Bukuru", "Shendam", "Pankshin", "Barkin Ladi", "Langtang"],
+    "Rivers": ["Port Harcourt", "Bonny", "Degema", "Okrika", "Oyigbo", "Eleme"],
+    "Sokoto": ["Sokoto", "Tambuwal", "Wurno", "Gwadabawa", "Bodinga", "Illela"],
+    "Taraba": ["Jalingo", "Bali", "Wukari", "Takum", "Serti", "Gembu"],
+    "Yobe": ["Damaturu", "Potiskum", "Gashua", "Geidam", "Nguru", "Buni Yadi"],
+    "Zamfara": ["Gusau", "Kaura Namoda", "Bungudu", "Anka", "Talata Mafara", "Maru"]
 }
 
 # Travel policies
@@ -332,22 +406,12 @@ INTERNATIONAL_POLICY = {
 }
 
 # Helper functions
-def get_approval_flow(department, grade, role):
-    """Determine approval flow based on department and role"""
-    if department in ["Finance and Investment", "Administration"]:
-        return ["CFO/ED", "MD"]
-    elif department in ["Internal Control and Risk", "Internal Audit"]:
-        return ["Chief Risk Officer", "MD"]
-    elif department == "HR":
-        return ["MD"]
-    elif department == "Agencies":
-        return ["Chief Agencies Officer", "MD"]
-    elif department == "Legal and Compliance":
-        return ["Chief Compliance Officer", "MD"]
-    elif department == "Corporate Sales":
-        return ["Chief Commercial Officer", "MD"]
-    else:
-        return ["Head of Department", "MD"]
+def get_approval_flow(total_amount):
+    """Determine payment approval flow based on amount"""
+    if total_amount > 5000000:  # Greater than 5 million
+        return ["Head of Administration", "Chief Compliance Officer", "Chief Risk Officer", "MD"]
+    else:  # 5 million or less
+        return ["Head of Administration", "Chief Compliance Officer", "Chief Risk Officer", "ED"]
 
 def get_grade_category(grade):
     """Map grade to policy category"""
@@ -381,6 +445,65 @@ def calculate_travel_costs(grade, travel_type, duration_nights):
         policy = INTERNATIONAL_POLICY[grade_category]
         return policy["total"] * duration_nights
 
+def generate_pdf_report(request_data, cost_data, user_data):
+    """Generate PDF report for travel request"""
+    pdf = FPDF()
+    pdf.add_page()
+    
+    # Add logo/header
+    pdf.set_font('Arial', 'B', 16)
+    pdf.cell(200, 10, 'PRUDENTIAL ZENITH TRAVEL REQUEST REPORT', 0, 1, 'C')
+    pdf.ln(10)
+    
+    # Employee Information
+    pdf.set_font('Arial', 'B', 12)
+    pdf.cell(200, 10, 'Employee Information', 0, 1, 'L')
+    pdf.set_font('Arial', '', 10)
+    pdf.cell(200, 6, f'Name: {user_data["full_name"]}', 0, 1)
+    pdf.cell(200, 6, f'Employee ID: {user_data["employee_id"]}', 0, 1)
+    pdf.cell(200, 6, f'Department: {user_data["department"]}', 0, 1)
+    pdf.cell(200, 6, f'Grade: {user_data["grade"]}', 0, 1)
+    pdf.ln(5)
+    
+    # Travel Details
+    pdf.set_font('Arial', 'B', 12)
+    pdf.cell(200, 10, 'Travel Details', 0, 1, 'L')
+    pdf.set_font('Arial', '', 10)
+    pdf.cell(200, 6, f'Destination: {request_data["destination"]}, {request_data["city"]}', 0, 1)
+    pdf.cell(200, 6, f'Purpose: {request_data["purpose"]}', 0, 1)
+    pdf.cell(200, 6, f'Departure: {request_data["departure_date"]} to {request_data["arrival_date"]}', 0, 1)
+    pdf.cell(200, 6, f'Duration: {request_data["duration_days"]} days ({request_data["duration_nights"]} nights)', 0, 1)
+    pdf.ln(5)
+    
+    # Cost Details
+    if cost_data:
+        pdf.set_font('Arial', 'B', 12)
+        pdf.cell(200, 10, 'Cost Details', 0, 1, 'L')
+        pdf.set_font('Arial', '', 10)
+        pdf.cell(200, 6, f'Flight Cost: ₦{cost_data["flight_cost"]:,.2f}', 0, 1)
+        pdf.cell(200, 6, f'Per Diem: ₦{cost_data["per_diem_amount"]:,.2f}', 0, 1)
+        pdf.cell(200, 6, f'Total Cost: ₦{cost_data["total_cost"]:,.2f}', 0, 1)
+        pdf.cell(200, 6, f'Budget Balance: ₦{cost_data["budget_balance"]:,.2f}', 0, 1)
+        pdf.ln(5)
+    
+    # Approval Status
+    pdf.set_font('Arial', 'B', 12)
+    pdf.cell(200, 10, 'Approval Status', 0, 1, 'L')
+    pdf.set_font('Arial', '', 10)
+    pdf.cell(200, 6, f'Status: {request_data["status"].upper()}', 0, 1)
+    pdf.cell(200, 6, f'Payment Status: {cost_data.get("payment_status", "N/A") if cost_data else "N/A"}', 0, 1)
+    pdf.ln(10)
+    
+    # Footer
+    pdf.set_font('Arial', 'I', 8)
+    pdf.cell(200, 10, f'Generated on: {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}', 0, 1, 'C')
+    
+    # Save to temporary file
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
+    pdf.output(temp_file.name)
+    
+    return temp_file.name
+
 def login():
     """Login page with red and grey color scheme"""
     # Company header
@@ -399,74 +522,64 @@ def login():
         st.markdown('<div class="login-container">', unsafe_allow_html=True)
         st.markdown('<h3 class="login-title">🔐 USER LOGIN</h3>', unsafe_allow_html=True)
         
-        # Create a form for login
-        with st.form("login_form"):
-            username = st.text_input("**Username / Employee ID**", placeholder="Enter your username")
-            password = st.text_input("**Password**", type="password", placeholder="Enter your password")
-            
-            col_a, col_b = st.columns(2)
-            with col_a:
-                login_btn = st.form_submit_button("**LOGIN**", use_container_width=True)
-            with col_b:
-                register_btn = st.form_submit_button("**CREATE ACCOUNT**", use_container_width=True)
-            
-            # Quick login info for CFO/ED and MD
-            st.markdown('<div class="quick-login">', unsafe_allow_html=True)
-            st.markdown('<h4>🔑 Quick Login (Test Credentials)</h4>', unsafe_allow_html=True)
-            st.markdown("""
-            - **CFO/ED**: Username: `cfo_ed` | Password: `0123456`
-            - **MD**: Username: `md` | Password: `123456`
-            - **Admin**: Username: `456475` | Password: `prutravel123`
-            """)
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            # Authentication logic
-            if login_btn:
-                if not username or not password:
-                    st.error("⚠️ Please enter both username and password")
+        username = st.text_input("**Username / Employee ID**", placeholder="Enter your username")
+        password = st.text_input("**Password**", type="password", placeholder="Enter your password")
+        
+        # Login buttons
+        col_a, col_b = st.columns(2)
+        with col_a:
+            login_btn = st.button("**LOGIN**", use_container_width=True, type="primary")
+        with col_b:
+            register_btn = st.button("**CREATE ACCOUNT**", use_container_width=True)
+        
+        # Quick login info
+        st.markdown('<div class="quick-login">', unsafe_allow_html=True)
+        st.markdown('<h4>🔑 Quick Login (Test Credentials)</h4>', unsafe_allow_html=True)
+        st.markdown("""
+        - **Head of Admin**: Username: `head_admin` | Password: `123456`
+        - **Compliance**: Username: `chief_compliance` | Password: `123456`
+        - **Risk Officer**: Username: `chief_risk` | Password: `123456`
+        - **Payables**: Username: `payables` | Password: `123456`
+        - **CFO/ED**: Username: `cfo_ed` | Password: `0123456`
+        - **MD**: Username: `md` | Password: `123456`
+        """)
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Authentication logic
+        if login_btn:
+            if not username or not password:
+                st.error("⚠️ Please enter both username and password")
+            else:
+                # Check database for user credentials
+                conn = sqlite3.connect('travel_app.db')
+                c = conn.cursor()
+                c.execute("SELECT * FROM users WHERE username = ?", (username,))
+                user = c.fetchone()
+                conn.close()
+                
+                if user and check_hashes(password, user[4]):
+                    st.session_state.logged_in = True
+                    st.session_state.username = user[2]
+                    st.session_state.role = user[7]
+                    st.session_state.department = user[5]
+                    st.session_state.grade = user[6]
+                    st.session_state.full_name = user[1]
+                    st.session_state.employee_id = user[8]
+                    st.success(f"✅ Welcome {user[1]}!")
+                    time.sleep(1)
+                    st.rerun()
                 else:
-                    # Check for hardcoded admin credentials
-                    if username == "456475" and password == "prutravel123":
-                        st.session_state.logged_in = True
-                        st.session_state.username = "admin"
-                        st.session_state.role = "admin"
-                        st.session_state.department = "Administration"
-                        st.session_state.grade = "MD"
-                        st.session_state.full_name = "System Administrator"
-                        st.success("✅ Admin login successful!")
-                        time.sleep(1)
-                        st.rerun()
-                    
-                    # Check database for user credentials
-                    else:
-                        conn = sqlite3.connect('travel_app.db')
-                        c = conn.cursor()
-                        c.execute("SELECT * FROM users WHERE username = ?", (username,))
-                        user = c.fetchone()
-                        conn.close()
-                        
-                        if user and check_hashes(password, user[4]):
-                            st.session_state.logged_in = True
-                            st.session_state.username = user[2]
-                            st.session_state.role = user[7]
-                            st.session_state.department = user[5]
-                            st.session_state.grade = user[6]
-                            st.session_state.full_name = user[1]
-                            st.success(f"✅ Welcome {user[1]}!")
-                            time.sleep(1)
-                            st.rerun()
-                        else:
-                            st.error("❌ Invalid username or password")
-            
-            if register_btn:
-                st.session_state.show_registration = True
-                st.rerun()
+                    st.error("❌ Invalid username or password")
+        
+        if register_btn:
+            st.session_state.show_registration = True
+            st.rerun()
         
         st.markdown('</div>', unsafe_allow_html=True)
     
     # Footer
     st.markdown('<div class="footer">', unsafe_allow_html=True)
-    st.markdown('Prudential Zenith Life Insurance • Travel Management System v1.0')
+    st.markdown('Prudential Zenith Life Insurance • Travel Management System v2.0')
     st.markdown('© 2024 All Rights Reserved')
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -481,6 +594,7 @@ def registration_form():
             full_name = st.text_input("Full Name*")
             username = st.text_input("Username (Employee ID)*")
             email = st.text_input("Email Address*")
+            employee_id = st.text_input("Official Employee ID*")
             department = st.selectbox("Department*", DEPARTMENTS)
         
         with col2:
@@ -488,14 +602,17 @@ def registration_form():
             confirm_password = st.text_input("Confirm Password*", type="password")
             grade = st.selectbox("Grade*", GRADES)
             role = st.selectbox("Role*", ROLES)
+            bank_name = st.text_input("Bank Name")
+            account_number = st.text_input("Account Number")
+            account_name = st.text_input("Account Name")
         
         profile_pic = st.file_uploader("Profile Picture (Optional)", type=['jpg', 'jpeg', 'png'])
         
         submitted = st.form_submit_button("Create Account")
         
         if submitted:
-            if not all([full_name, username, email, password, confirm_password, department, grade, role]):
-                st.error("Please fill in all required fields")
+            if not all([full_name, username, email, password, confirm_password, department, grade, role, employee_id]):
+                st.error("Please fill in all required fields (*)")
             elif password != confirm_password:
                 st.error("Passwords do not match")
             else:
@@ -515,10 +632,12 @@ def registration_form():
                     
                     # Insert user
                     c.execute("""INSERT INTO users 
-                                 (full_name, username, email, password, department, grade, role, profile_pic) 
-                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                                 (full_name, username, email, password, department, grade, role, 
+                                  employee_id, bank_name, account_number, account_name, profile_pic) 
+                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                              (full_name, username, email, make_hashes(password), 
-                              department, grade, role, pic_data))
+                              department, grade, role, employee_id, 
+                              bank_name, account_number, account_name, pic_data))
                     
                     conn.commit()
                     conn.close()
@@ -530,7 +649,7 @@ def registration_form():
 
 def dashboard():
     """Main dashboard"""
-    # Sidebar navigation with red/grey theme
+    # Sidebar navigation
     with st.sidebar:
         st.markdown("""
         <div style="text-align: center; padding: 10px;">
@@ -546,28 +665,36 @@ def dashboard():
         st.markdown(f"**📋 Role:** {st.session_state.role}")
         st.markdown(f"**🏢 Dept:** {st.session_state.department}")
         st.markdown(f"**⭐ Grade:** {st.session_state.grade}")
+        st.markdown(f"**🆔 ID:** {st.session_state.employee_id}")
         
         st.markdown("---")
         
         menu_options = ["Dashboard", "Staff Profile", "Travel Request", "Travel History", "Approvals", "Analytics"]
         
-        # Admin specific options
-        if st.session_state.role == "admin":
+        # Role-based menu options
+        if st.session_state.role == "Head of Administration":
+            menu_options.extend(["Admin: Payment Requests", "Budget Analytics"])
+        elif st.session_state.role == "Payables":
+            menu_options.extend(["Payments"])
+        elif st.session_state.role == "admin":
             menu_options.extend(["Admin Panel", "Manage Users"])
         
         selected = option_menu(
             menu_title="Navigation",
             options=menu_options,
             icons=["house", "person", "airplane", "clock-history", "check-circle", "graph-up", 
-                   "gear", "people"] if st.session_state.role == "admin" else 
-                   ["house", "person", "airplane", "clock-history", "check-circle", "graph-up"],
+                   "currency-dollar", "pie-chart", "gear", "people"] if "Admin: Payment Requests" in menu_options else 
+                   ["house", "person", "airplane", "clock-history", "check-circle", "graph-up",
+                   "currency-dollar", "gear", "people"] if "Payments" in menu_options else
+                   ["house", "person", "airplane", "clock-history", "check-circle", "graph-up",
+                   "gear", "people"],
             menu_icon="cast",
             default_index=0,
             styles={
                 "container": {"padding": "0!important", "background-color": "#fafafa"},
                 "icon": {"color": "#D32F2F", "font-size": "18px"}, 
                 "nav-link": {"font-size": "16px", "text-align": "left", "margin": "0px", "--hover-color": "#eee"},
-                "nav-link-selected": {"background-color": "#D32F2F", "color": "white"},
+                "nav-link-selected": {"background-color": #D32F2F, "color": "white"},
             }
         )
         
@@ -591,6 +718,12 @@ def dashboard():
         approvals_panel()
     elif selected == "Analytics":
         analytics_dashboard()
+    elif selected == "Admin: Payment Requests":
+        admin_payment_requests()
+    elif selected == "Budget Analytics":
+        budget_analytics()
+    elif selected == "Payments":
+        payments_panel()
     elif selected == "Admin Panel":
         admin_panel()
     elif selected == "Manage Users":
@@ -603,45 +736,37 @@ def show_dashboard():
     # Get user data
     conn = sqlite3.connect('travel_app.db')
     
-    # Stats cards with red/grey theme
+    # Stats cards
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
         total_travel = pd.read_sql("SELECT COUNT(*) as count FROM travel_requests WHERE username = ?", 
                                   conn, params=(st.session_state.username,)).iloc[0]['count']
         st.metric("Total Travel", total_travel, 
-                 delta=None, delta_color="normal",
-                 help="Total number of travel requests")
+                 delta=None, delta_color="normal")
     
     with col2:
         pending = pd.read_sql("""SELECT COUNT(*) as count FROM travel_requests 
                                WHERE username = ? AND status = 'pending'""", 
                              conn, params=(st.session_state.username,)).iloc[0]['count']
         st.metric("Pending", pending, 
-                 delta=None, delta_color="inverse",
-                 help="Pending travel requests")
+                 delta=None, delta_color="inverse")
     
     with col3:
         approved = pd.read_sql("""SELECT COUNT(*) as count FROM travel_requests 
                                 WHERE username = ? AND status = 'approved'""", 
                               conn, params=(st.session_state.username,)).iloc[0]['count']
         st.metric("Approved", approved, 
-                 delta=None, delta_color="normal",
-                 help="Approved travel requests")
+                 delta=None, delta_color="normal")
     
     with col4:
-        if st.session_state.role == "admin":
-            total_users = pd.read_sql("SELECT COUNT(*) as count FROM users", conn).iloc[0]['count']
-            st.metric("Total Users", total_users,
-                     delta=None, delta_color="normal",
-                     help="Total system users")
-        else:
-            rejected = pd.read_sql("""SELECT COUNT(*) as count FROM travel_requests 
-                                    WHERE username = ? AND status = 'rejected'""", 
-                                  conn, params=(st.session_state.username,)).iloc[0]['count']
-            st.metric("Rejected", rejected,
-                     delta=None, delta_color="inverse",
-                     help="Rejected travel requests")
+        paid = pd.read_sql("""SELECT COUNT(DISTINCT tc.request_id) as count 
+                            FROM travel_costs tc
+                            JOIN travel_requests tr ON tc.request_id = tr.id
+                            WHERE tr.username = ? AND tc.payment_status = 'paid'""", 
+                          conn, params=(st.session_state.username,)).iloc[0]['count']
+        st.metric("Paid", paid, 
+                 delta=None, delta_color="normal")
     
     st.markdown("---")
     
@@ -661,12 +786,18 @@ def show_dashboard():
                 'rejected': '#dc3545'
             }.get(status_class, '#616161')
             
+            # Get payment status
+            payment_status = pd.read_sql("""SELECT payment_status FROM travel_costs 
+                                         WHERE request_id = ?""", 
+                                       conn, params=(row['id'],))
+            payment_text = f" | Payment: {payment_status.iloc[0]['payment_status'] if not payment_status.empty else 'N/A'}"
+            
             st.markdown(f"""
             <div class="card" style="border-left-color: {status_color};">
                 <h4 style="color: #D32F2F;">{row['destination']} ({row['travel_type'].title()})</h4>
                 <p><strong>Purpose:</strong> {row['purpose']}</p>
                 <p><strong>Dates:</strong> {row['departure_date']} to {row['arrival_date']}</p>
-                <p><strong>Status:</strong> <span style="color: {status_color}; font-weight:bold">{row['status'].upper()}</span></p>
+                <p><strong>Status:</strong> <span style="color: {status_color}; font-weight:bold">{row['status'].upper()}</span>{payment_text}</p>
             </div>
             """, unsafe_allow_html=True)
     else:
@@ -675,554 +806,817 @@ def show_dashboard():
     conn.close()
 
 def show_profile():
-    """User profile page"""
+    """Staff profile update page"""
     st.markdown('<h1 class="sub-header">Staff Profile</h1>', unsafe_allow_html=True)
     
     conn = sqlite3.connect('travel_app.db')
-    user_data = pd.read_sql("SELECT * FROM users WHERE username = ?", 
-                           conn, params=(st.session_state.username,)).iloc[0]
+    c = conn.cursor()
     
-    col1, col2 = st.columns([1, 2])
+    # Get user data
+    c.execute("SELECT * FROM users WHERE username = ?", (st.session_state.username,))
+    user = c.fetchone()
     
-    with col1:
-        if user_data['profile_pic']:
-            st.image(user_data['profile_pic'], width=200)
-        else:
-            st.image("https://via.placeholder.com/200x200.png?text=No+Image", width=200)
-    
-    with col2:
-        st.markdown(f"### {user_data['full_name']}")
-        st.markdown(f"**Employee ID:** {user_data['username']}")
-        st.markdown(f"**Email:** {user_data['email']}")
-        st.markdown(f"**Department:** {user_data['department']}")
-        st.markdown(f"**Grade:** {user_data['grade']}")
-        st.markdown(f"**Role:** {user_data['role']}")
+    if user:
+        with st.form("profile_form"):
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.subheader("Personal Information")
+                full_name = st.text_input("Full Name", value=user[1])
+                email = st.text_input("Email Address", value=user[3])
+                employee_id = st.text_input("Employee ID", value=user[8])
+                department = st.selectbox("Department", DEPARTMENTS, index=DEPARTMENTS.index(user[5]) if user[5] in DEPARTMENTS else 0)
+            
+            with col2:
+                st.subheader("Account Information")
+                grade = st.selectbox("Grade", GRADES, index=GRADES.index(user[6]) if user[6] in GRADES else 0)
+                role = st.selectbox("Role", ROLES, index=ROLES.index(user[7]) if user[7] in ROLES else 0)
+                bank_name = st.text_input("Bank Name", value=user[9] if user[9] else "")
+                account_number = st.text_input("Account Number", value=user[10] if user[10] else "")
+                account_name = st.text_input("Account Name", value=user[11] if user[11] else "")
+            
+            st.subheader("Profile Picture")
+            current_pic = None
+            if user[12]:  # profile_pic
+                current_pic = Image.open(io.BytesIO(user[12]))
+                st.image(current_pic, caption="Current Profile Picture", width=150)
+            
+            new_pic = st.file_uploader("Upload new profile picture", type=['jpg', 'jpeg', 'png'])
+            
+            submitted = st.form_submit_button("Update Profile")
+            
+            if submitted:
+                # Update profile picture
+                pic_data = user[12]
+                if new_pic:
+                    pic_data = new_pic.read()
+                
+                # Update user
+                c.execute("""UPDATE users SET 
+                          full_name = ?, email = ?, department = ?, grade = ?, role = ?,
+                          employee_id = ?, bank_name = ?, account_number = ?, account_name = ?, profile_pic = ?
+                          WHERE username = ?""",
+                         (full_name, email, department, grade, role, employee_id,
+                          bank_name, account_number, account_name, pic_data, st.session_state.username))
+                
+                conn.commit()
+                
+                # Update session state
+                st.session_state.full_name = full_name
+                st.session_state.department = department
+                st.session_state.grade = grade
+                st.session_state.role = role
+                st.session_state.employee_id = employee_id
+                
+                st.success("Profile updated successfully!")
+                st.rerun()
     
     conn.close()
 
 def travel_request_form():
-    """Travel request form"""
-    st.markdown('<h1 class="sub-header">New Travel Request</h1>', unsafe_allow_html=True)
+    """Travel request form with updated cities"""
+    st.markdown('<h1 class="sub-header">Travel Request Form</h1>', unsafe_allow_html=True)
     
-    travel_type = st.radio("Travel Type", ["Local", "International"])
-    
-    with st.form("travel_request"):
+    with st.form("travel_request_form"):
         col1, col2 = st.columns(2)
         
         with col1:
-            if travel_type == "Local":
-                state = st.selectbox("State*", list(NIGERIAN_STATES.keys()))
+            travel_type = st.selectbox("Travel Type*", ["local", "international"])
+            purpose = st.text_area("Purpose of Travel*", height=100)
+            mode_of_travel = st.selectbox("Mode of Travel*", ["Flight", "Road", "Rail"])
+            accommodation_needed = st.selectbox("Accommodation Needed*", ["Yes", "No"])
+            
+            # Updated state and city selection
+            state = st.selectbox("State*", list(NIGERIAN_STATES.keys()))
+            if state:
                 city = st.selectbox("City*", NIGERIAN_STATES[state])
-                destination = f"{city}, {state}"
             else:
-                country = st.text_input("Country*")
-                city = st.text_input("City/Region*")
-                destination = f"{city}, {country}"
+                city = st.text_input("City*")
             
-            purpose = st.selectbox("Purpose*", 
-                                  ["Business Meeting", "Conference", "Training", 
-                                   "Project Site Visit", "Other"])
-            
-            if purpose == "Other":
-                purpose = st.text_input("Specify purpose")
+            destination = st.text_input("Destination Address*")
         
         with col2:
-            mode_of_travel = st.selectbox("Mode of Travel*", 
-                                         ["Flight", "Road", "Train", "Water", "Other"])
-            
             departure_date = st.date_input("Departure Date*", min_value=date.today())
-            arrival_date = st.date_input("Arrival Date*", min_value=departure_date)
+            arrival_date = st.date_input("Arrival Date*", min_value=date.today())
             
-            accommodation = st.radio("Accommodation Needed?", ["Yes", "No"])
-        
-        # Auto-calculate duration
-        if departure_date and arrival_date:
-            duration_days = (arrival_date - departure_date).days + 1
-            duration_nights = (arrival_date - departure_date).days
+            if departure_date and arrival_date:
+                duration = (arrival_date - departure_date).days
+                duration_nights = max(0, duration - 1) if duration > 0 else 0
+                st.info(f"Duration: {duration} days ({duration_nights} nights)")
+            else:
+                duration_nights = 0
             
-            st.markdown(f"**Duration:** {duration_days} days ({duration_nights} nights)")
-        else:
-            duration_days = 0
-            duration_nights = 0
+            # Calculate estimated cost
+            if st.button("Calculate Estimated Cost"):
+                estimated_cost = calculate_travel_costs(st.session_state.grade, travel_type, duration_nights)
+                st.success(f"Estimated Cost: ₦{estimated_cost:,.2f}")
         
-        submitted = st.form_submit_button("Submit Request")
+        submitted = st.form_submit_button("Submit Travel Request")
         
         if submitted:
-            if not all([destination, purpose, mode_of_travel]):
-                st.error("Please fill all required fields")
-            elif arrival_date <= departure_date:
+            if not all([purpose, destination, city, state, mode_of_travel]):
+                st.error("Please fill in all required fields (*)")
+            elif departure_date >= arrival_date:
                 st.error("Arrival date must be after departure date")
             else:
-                # Get approval flow
-                approval_flow = get_approval_flow(
-                    st.session_state.department, 
-                    st.session_state.grade, 
-                    st.session_state.role
-                )
-                
-                # Insert travel request
                 conn = sqlite3.connect('travel_app.db')
                 c = conn.cursor()
                 
+                # Insert travel request
                 c.execute("""INSERT INTO travel_requests 
-                          (username, travel_type, destination, city, purpose, 
-                          mode_of_travel, departure_date, arrival_date, 
-                          accommodation_needed, duration_days, duration_nights, 
-                          current_approver, approval_flow) 
-                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                         (st.session_state.username, 
-                          travel_type.lower(), 
-                          destination, 
-                          city, 
-                          purpose, 
-                          mode_of_travel,
-                          departure_date.strftime("%Y-%m-%d"),
-                          arrival_date.strftime("%Y-%m-%d"),
-                          accommodation,
-                          duration_days,
-                          duration_nights,
-                          approval_flow[0],
-                          json.dumps(approval_flow)))
+                          (username, employee_id, travel_type, destination, state, city, purpose, 
+                           mode_of_travel, departure_date, arrival_date, accommodation_needed,
+                           duration_days, duration_nights, current_approver)
+                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                         (st.session_state.username, st.session_state.employee_id, travel_type,
+                          destination, state, city, purpose, mode_of_travel,
+                          departure_date, arrival_date, accommodation_needed,
+                          duration, duration_nights, "Head of Department"))
                 
                 request_id = c.lastrowid
                 
                 # Create initial approval record
-                c.execute("""INSERT INTO approvals 
-                          (request_id, approver_role, status) 
+                c.execute("""INSERT INTO approvals (request_id, approver_role, status)
                           VALUES (?, ?, ?)""",
-                         (request_id, approval_flow[0], "pending"))
+                         (request_id, "Head of Department", "pending"))
                 
                 conn.commit()
                 conn.close()
                 
                 st.success("Travel request submitted successfully!")
-                st.info(f"Awaiting approval from: {approval_flow[0]}")
-                
-                # Calculate estimated costs
-                grade_category = get_grade_category(st.session_state.grade)
-                
-                if travel_type == "Local":
-                    policy = LOCAL_POLICY[grade_category]
-                    st.markdown("### Estimated Allowances (Local)")
-                    col_a, col_b = st.columns(2)
-                    with col_a:
-                        st.metric("Hotel Allowance", 
-                                 f"₦{policy['hotel']:,}" if isinstance(policy['hotel'], int) else policy['hotel'])
-                    with col_b:
-                        st.metric("Feeding Allowance (per meal)",
-                                 f"₦{policy['feeding']:,}" if isinstance(policy['feeding'], int) else policy['feeding'])
-                else:
-                    policy = INTERNATIONAL_POLICY[grade_category]
-                    st.markdown("### Estimated Allowances (International)")
-                    col_a, col_b, col_c, col_d = st.columns(4)
-                    with col_a:
-                        st.metric("In-lieu", f"${policy['in_lieu']}")
-                    with col_b:
-                        st.metric("Out of Station", f"${policy['out_of_station']}")
-                    with col_c:
-                        st.metric("Airport Taxi", f"${policy['airport_taxi']}")
-                    with col_d:
-                        st.metric("Total per day", f"${policy['total']}")
-                    st.metric("Total Estimated Cost", f"${policy['total'] * duration_nights:,}")
+                time.sleep(2)
+                st.rerun()
 
 def travel_history():
-    """Travel history page"""
+    """Travel history with payment status and PDF download"""
     st.markdown('<h1 class="sub-header">Travel History</h1>', unsafe_allow_html=True)
     
     conn = sqlite3.connect('travel_app.db')
     
-    # Filters
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        status_filter = st.selectbox("Filter by Status", 
-                                    ["All", "pending", "approved", "rejected"])
-    with col2:
-        type_filter = st.selectbox("Filter by Type", 
-                                  ["All", "local", "international"])
+    # Get all travel requests for user
+    query = """
+    SELECT tr.*, tc.payment_status, tc.total_cost, tc.flight_cost
+    FROM travel_requests tr
+    LEFT JOIN travel_costs tc ON tr.id = tc.request_id
+    WHERE tr.username = ?
+    ORDER BY tr.created_at DESC
+    """
     
-    # Build query
-    query = "SELECT * FROM travel_requests WHERE username = ?"
-    params = [st.session_state.username]
+    df = pd.read_sql(query, conn, params=(st.session_state.username,))
     
-    if status_filter != "All":
-        query += " AND status = ?"
-        params.append(status_filter)
-    
-    if type_filter != "All":
-        query += " AND travel_type = ?"
-        params.append(type_filter)
-    
-    query += " ORDER BY created_at DESC"
-    
-    travel_data = pd.read_sql(query, conn, params=params)
-    
-    if not travel_data.empty:
-        for _, row in travel_data.iterrows():
-            with st.expander(f"{row['destination']} - {row['status'].upper()} ({row['created_at'][:10]})"):
-                col_a, col_b = st.columns(2)
-                with col_a:
-                    st.markdown(f"**Purpose:** {row['purpose']}")
-                    st.markdown(f"**Mode of Travel:** {row['mode_of_travel']}")
-                    st.markdown(f"**Accommodation:** {row['accommodation_needed']}")
-                with col_b:
-                    st.markdown(f"**Departure:** {row['departure_date']}")
-                    st.markdown(f"**Arrival:** {row['arrival_date']}")
-                    st.markdown(f"**Duration:** {row['duration_days']} days")
+    if not df.empty:
+        # Add download button
+        if st.button("📥 Export to Excel"):
+            excel_file = io.BytesIO()
+            df.to_excel(excel_file, index=False)
+            excel_file.seek(0)
+            st.download_button(
+                label="Download Excel File",
+                data=excel_file,
+                file_name=f"travel_history_{st.session_state.username}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        
+        # Display each travel request
+        for _, row in df.iterrows():
+            with st.expander(f"{row['destination']} - {row['departure_date']} to {row['arrival_date']}"):
+                col1, col2 = st.columns(2)
                 
-                # Show approval flow
-                st.markdown("**Approval Flow:**")
-                approval_flow = json.loads(row['approval_flow'])
-                for i, approver in enumerate(approval_flow):
-                    status_icon = "⏳" if i == 0 and row['status'] == 'pending' else "✅"
-                    st.markdown(f"{status_icon} {approver}")
-    
+                with col1:
+                    st.write(f"**Purpose:** {row['purpose']}")
+                    st.write(f"**Type:** {row['travel_type']}")
+                    st.write(f"**Destination:** {row['city']}, {row['state']}")
+                    st.write(f"**Mode:** {row['mode_of_travel']}")
+                    st.write(f"**Accommodation:** {row['accommodation_needed']}")
+                
+                with col2:
+                    status_color = {
+                        'approved': 'green',
+                        'pending': 'orange',
+                        'rejected': 'red'
+                    }.get(row['status'], 'gray')
+                    
+                    st.write(f"**Status:** :{status_color}[{row['status'].upper()}]")
+                    st.write(f"**Payment Status:** {row['payment_status'] or 'N/A'}")
+                    st.write(f"**Total Cost:** ₦{row['total_cost']:,.2f}" if row['total_cost'] else "**Total Cost:** N/A")
+                    st.write(f"**Flight Cost:** ₦{row['flight_cost']:,.2f}" if row['flight_cost'] else "**Flight Cost:** N/A")
+                
+                # PDF Download button
+                if st.button("📄 Download PDF Report", key=f"pdf_{row['id']}"):
+                    # Get user data
+                    c = conn.cursor()
+                    c.execute("SELECT * FROM users WHERE username = ?", (st.session_state.username,))
+                    user_data = c.fetchone()
+                    
+                    # Get cost data
+                    c.execute("SELECT * FROM travel_costs WHERE request_id = ?", (row['id'],))
+                    cost_data = c.fetchone()
+                    
+                    # Convert to dictionaries
+                    user_dict = {
+                        'full_name': user_data[1],
+                        'employee_id': user_data[8],
+                        'department': user_data[5],
+                        'grade': user_data[6]
+                    }
+                    
+                    cost_dict = {}
+                    if cost_data:
+                        cost_dict = {
+                            'flight_cost': cost_data[5],
+                            'per_diem_amount': cost_data[4],
+                            'total_cost': cost_data[7],
+                            'budget_balance': cost_data[6],
+                            'payment_status': cost_data[13]
+                        }
+                    
+                    # Generate PDF
+                    pdf_file = generate_pdf_report(row, cost_dict, user_dict)
+                    
+                    # Download
+                    with open(pdf_file, 'rb') as f:
+                        st.download_button(
+                            label="Click to Download PDF",
+                            data=f,
+                            file_name=f"travel_report_{row['id']}.pdf",
+                            mime="application/pdf"
+                        )
+                    
+                    # Clean up
+                    os.unlink(pdf_file)
     else:
-        st.info("No travel records found")
+        st.info("No travel history found")
     
     conn.close()
 
 def approvals_panel():
-    """Approvals panel for managers and approvers"""
+    """Approvals panel for approvers"""
     st.markdown('<h1 class="sub-header">Approvals Panel</h1>', unsafe_allow_html=True)
     
-    # Determine approver role based on user's position
-    approver_role = st.session_state.role
+    if st.session_state.role not in ["Head of Department", "Chief Compliance Officer", 
+                                     "Chief Risk Officer", "ED", "MD", "Head of Administration"]:
+        st.warning("You don't have approval privileges")
+        return
     
     conn = sqlite3.connect('travel_app.db')
     
-    # Get pending approvals for this approver
-    query = """SELECT tr.*, u.full_name, u.department, u.grade 
-               FROM travel_requests tr 
-               JOIN users u ON tr.username = u.username 
-               WHERE tr.current_approver = ? AND tr.status = 'pending'"""
+    # Get pending approvals for current approver
+    query = """
+    SELECT tr.*, u.full_name, u.department, u.grade
+    FROM travel_requests tr
+    JOIN users u ON tr.username = u.username
+    WHERE tr.status = 'pending' 
+    AND tr.current_approver = ?
+    ORDER BY tr.created_at DESC
+    """
     
-    pending_approvals = pd.read_sql(query, conn, params=(approver_role,))
+    df = pd.read_sql(query, conn, params=(st.session_state.role,))
     
-    if not pending_approvals.empty:
-        for _, row in pending_approvals.iterrows():
+    if not df.empty:
+        st.write(f"You have {len(df)} pending approval(s)")
+        
+        for _, row in df.iterrows():
             with st.container():
-                st.markdown(f"### Travel Request from {row['full_name']}")
+                col1, col2 = st.columns([3, 1])
                 
-                col1, col2 = st.columns(2)
                 with col1:
-                    st.markdown(f"**Destination:** {row['destination']}")
-                    st.markdown(f"**Purpose:** {row['purpose']}")
-                    st.markdown(f"**Department:** {row['department']}")
+                    st.markdown(f"""
+                    <div class="card pending">
+                        <h4>Travel Request #{row['id']}</h4>
+                        <p><strong>Employee:</strong> {row['full_name']} ({row['department']}, {row['grade']})</p>
+                        <p><strong>Destination:</strong> {row['destination']}, {row['city']}</p>
+                        <p><strong>Purpose:</strong> {row['purpose']}</p>
+                        <p><strong>Dates:</strong> {row['departure_date']} to {row['arrival_date']}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
                 with col2:
-                    st.markdown(f"**Travel Type:** {row['travel_type']}")
-                    st.markdown(f"**Dates:** {row['departure_date']} to {row['arrival_date']}")
-                    st.markdown(f"**Grade:** {row['grade']}")
-                
-                # Approval buttons
-                col_a, col_b, col_c = st.columns(3)
-                with col_a:
-                    if st.button(f"Approve", key=f"approve_{row['id']}"):
-                        update_approval_status(row['id'], "approved", approver_role)
+                    st.write("**Action Required**")
+                    action = st.selectbox("Action", ["Approve", "Reject", "Request More Info"], 
+                                        key=f"action_{row['id']}")
+                    comments = st.text_area("Comments", key=f"comments_{row['id']}")
+                    
+                    if st.button("Submit Decision", key=f"submit_{row['id']}"):
+                        update_approval_status(row['id'], action, comments, conn)
+                        st.success(f"Decision submitted: {action}")
+                        time.sleep(1)
                         st.rerun()
-                with col_b:
-                    if st.button(f"Reject", key=f"reject_{row['id']}"):
-                        update_approval_status(row['id'], "rejected", approver_role)
-                        st.rerun()
-                with col_c:
-                    if st.button(f"Request Info", key=f"info_{row['id']}"):
-                        st.info("Request more information functionality to be implemented")
-                
-                st.markdown("---")
     else:
         st.info("No pending approvals")
     
     conn.close()
 
-def update_approval_status(request_id, status, approver_role):
+def update_approval_status(request_id, action, comments, conn):
     """Update approval status"""
-    conn = sqlite3.connect('travel_app.db')
     c = conn.cursor()
     
-    # Update approval record
-    c.execute("""UPDATE approvals 
-                 SET status = ?, comments = ? 
-                 WHERE request_id = ? AND approver_role = ?""",
-             (status, "Approved via system", request_id, approver_role))
-    
-    # Get approval flow
-    c.execute("SELECT approval_flow FROM travel_requests WHERE id = ?", (request_id,))
-    approval_flow = json.loads(c.fetchone()[0])
-    
-    # Determine next approver or finalize
-    current_index = approval_flow.index(approver_role)
-    
-    if status == "approved":
-        if current_index < len(approval_flow) - 1:
-            next_approver = approval_flow[current_index + 1]
-            c.execute("""UPDATE travel_requests 
-                         SET current_approver = ? 
-                         WHERE id = ?""",
-                     (next_approver, request_id))
-            
-            # Create next approval record
-            c.execute("""INSERT INTO approvals 
-                         (request_id, approver_role, status) 
-                         VALUES (?, ?, ?)""",
-                     (request_id, next_approver, "pending"))
-        else:
-            # Final approval - update travel request status
-            c.execute("""UPDATE travel_requests 
-                         SET status = 'approved', current_approver = NULL 
-                         WHERE id = ?""",
-                     (request_id,))
-            
-            # Create travel cost record for admin
-            grade = pd.read_sql("SELECT grade FROM users u JOIN travel_requests tr ON u.username = tr.username WHERE tr.id = ?", 
-                              conn, params=(request_id,)).iloc[0]['grade']
-            
-            c.execute("""INSERT INTO travel_costs 
-                         (request_id, grade, status) 
-                         VALUES (?, ?, ?)""",
-                     (request_id, grade, "pending"))
-    else:
-        # Rejected - update status
+    if action == "Approve":
+        # Get current approver and determine next approver
+        c.execute("SELECT current_approver FROM travel_requests WHERE id = ?", (request_id,))
+        current_approver = c.fetchone()[0]
+        
+        # Determine next approver based on flow
+        approvers = ["Head of Department", "Head of Administration", 
+                    "Chief Compliance Officer", "Chief Risk Officer", "ED", "MD"]
+        
+        try:
+            current_index = approvers.index(current_approver)
+            if current_index < len(approvers) - 1:
+                next_approver = approvers[current_index + 1]
+                status = 'pending'
+            else:
+                next_approver = current_approver
+                status = 'approved'
+        except ValueError:
+            next_approver = current_approver
+            status = 'approved' if action == "Approve" else 'rejected'
+        
+        # Update travel request
         c.execute("""UPDATE travel_requests 
-                     SET status = 'rejected', current_approver = NULL 
-                     WHERE id = ?""",
-                 (request_id,))
+                  SET status = ?, current_approver = ?
+                  WHERE id = ?""",
+                 (status, next_approver, request_id))
+        
+    else:  # Reject or Request More Info
+        status = 'rejected' if action == "Reject" else 'pending'
+        c.execute("UPDATE travel_requests SET status = ? WHERE id = ?",
+                 (status, request_id))
+    
+    # Record approval decision
+    c.execute("""INSERT INTO approvals (request_id, approver_role, approver_name, status, comments)
+              VALUES (?, ?, ?, ?, ?)""",
+             (request_id, st.session_state.role, st.session_state.full_name, 
+              action.lower(), comments))
     
     conn.commit()
+
+def admin_payment_requests():
+    """Head of Administration: Payment request initiation with budget"""
+    if st.session_state.role != "Head of Administration":
+        st.warning("Access denied. Only Head of Administration can access this page.")
+        return
+    
+    st.markdown('<h1 class="sub-header">Payment Request Initiation</h1>', unsafe_allow_html=True)
+    
+    conn = sqlite3.connect('travel_app.db')
+    
+    # Get approved travel requests without cost entry
+    query = """
+    SELECT tr.*, u.full_name, u.department, u.grade, u.employee_id
+    FROM travel_requests tr
+    JOIN users u ON tr.username = u.username
+    WHERE tr.status = 'approved'
+    AND tr.id NOT IN (SELECT request_id FROM travel_costs)
+    ORDER BY tr.created_at DESC
+    """
+    
+    df = pd.read_sql(query, conn)
+    
+    if not df.empty:
+        st.write(f"Found {len(df)} approved travel request(s) pending cost entry")
+        
+        for _, row in df.iterrows():
+            with st.expander(f"Request #{row['id']} - {row['full_name']} ({row['employee_id']})"):
+                with st.form(f"cost_form_{row['id']}"):
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.write("**Travel Details**")
+                        st.write(f"Destination: {row['destination']}, {row['city']}")
+                        st.write(f"Purpose: {row['purpose']}")
+                        st.write(f"Dates: {row['departure_date']} to {row['arrival_date']}")
+                        st.write(f"Duration: {row['duration_days']} days")
+                        st.write(f"Grade: {row['grade']}")
+                        
+                        # Budget information
+                        st.write("**Budget Information**")
+                        budgeted_cost = st.number_input("Budgeted Cost (₦)", min_value=0.0, step=1000.0,
+                                                       key=f"budget_{row['id']}")
+                        ytd_budget = st.number_input("YTD Budget (₦)", min_value=0.0, step=1000.0,
+                                                    key=f"ytd_budget_{row['id']}")
+                        ytd_actual = st.number_input("YTD Actual (₦)", min_value=0.0, step=1000.0,
+                                                    key=f"ytd_actual_{row['id']}")
+                    
+                    with col2:
+                        st.write("**Cost Details**")
+                        flight_cost = st.number_input("Flight Cost (₦)", min_value=0.0, step=1000.0,
+                                                     key=f"flight_{row['id']}")
+                        per_diem = st.number_input("Per Diem Amount (₦)", min_value=0.0, step=1000.0,
+                                                  key=f"perdiem_{row['id']}")
+                        
+                        # Calculate total and budget balance
+                        total_cost = flight_cost + per_diem
+                        budget_balance = budgeted_cost - total_cost
+                        
+                        st.write(f"**Total Cost:** ₦{total_cost:,.2f}")
+                        st.write(f"**Budget Balance:** ₦{budget_balance:,.2f}")
+                        
+                        supporting_docs = st.file_uploader("Supporting Documents", 
+                                                          type=['pdf', 'jpg', 'jpeg', 'png'],
+                                                          key=f"docs_{row['id']}")
+                        admin_notes = st.text_area("Admin Notes", key=f"notes_{row['id']}")
+                    
+                    submitted = st.form_submit_button("Submit Payment Request")
+                    
+                    if submitted:
+                        # Determine approval flow based on total amount
+                        approval_flow = get_approval_flow(total_cost)
+                        
+                        # Save travel cost
+                        c = conn.cursor()
+                        c.execute("""INSERT INTO travel_costs 
+                                  (request_id, grade, per_diem_amount, flight_cost, 
+                                   budgeted_cost, budget_balance, total_cost, admin_notes,
+                                   approval_flow, current_approver)
+                                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                 (row['id'], row['grade'], per_diem, flight_cost,
+                                  budgeted_cost, budget_balance, total_cost, admin_notes,
+                                  json.dumps(approval_flow), approval_flow[0]))
+                        
+                        cost_id = c.lastrowid
+                        
+                        # Create budget record
+                        variance = ytd_budget - ytd_actual
+                        variance_percentage = (variance / ytd_budget * 100) if ytd_budget > 0 else 0
+                        
+                        c.execute("""INSERT INTO budgets 
+                                  (department, year, month, planned_budget, actual_spent,
+                                   ytd_budget, ytd_actual, variance, variance_percentage)
+                                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                 (row['department'], datetime.datetime.now().year,
+                                  datetime.datetime.now().month, budgeted_cost, total_cost,
+                                  ytd_budget, ytd_actual, variance, variance_percentage))
+                        
+                        # Create initial payment approval record
+                        c.execute("""INSERT INTO approvals (request_id, cost_id, approver_role, status)
+                                  VALUES (?, ?, ?, ?)""",
+                                 (row['id'], cost_id, approval_flow[0], "pending"))
+                        
+                        conn.commit()
+                        
+                        st.success("Payment request submitted for approval!")
+                        time.sleep(2)
+                        st.rerun()
+    else:
+        st.info("No approved travel requests pending cost entry")
+    
+    conn.close()
+
+def payments_panel():
+    """Payables officer panel to mark payments as paid"""
+    if st.session_state.role != "Payables":
+        st.warning("Access denied. Only Payables officer can access this page.")
+        return
+    
+    st.markdown('<h1 class="sub-header">Payments Management</h1>', unsafe_allow_html=True)
+    
+    conn = sqlite3.connect('travel_app.db')
+    
+    # Get approved payment requests
+    query = """
+    SELECT tc.*, tr.username, u.full_name, u.employee_id, u.department,
+           u.bank_name, u.account_number, u.account_name
+    FROM travel_costs tc
+    JOIN travel_requests tr ON tc.request_id = tr.id
+    JOIN users u ON tr.username = u.username
+    WHERE tc.status = 'approved'
+    AND tc.payment_status = 'pending'
+    ORDER BY tc.created_at DESC
+    """
+    
+    df = pd.read_sql(query, conn)
+    
+    if not df.empty:
+        st.write(f"Found {len(df)} approved payment(s) pending processing")
+        
+        for _, row in df.iterrows():
+            with st.container():
+                col1, col2 = st.columns([3, 1])
+                
+                with col1:
+                    st.markdown(f"""
+                    <div class="card approved">
+                        <h4>Payment Request #{row['id']}</h4>
+                        <p><strong>Employee:</strong> {row['full_name']} ({row['employee_id']})</p>
+                        <p><strong>Department:</strong> {row['department']}</p>
+                        <p><strong>Bank Details:</strong> {row['bank_name']} - {row['account_number']} ({row['account_name']})</p>
+                        <p><strong>Total Amount:</strong> ₦{row['total_cost']:,.2f}</p>
+                        <p><strong>Flight Cost:</strong> ₦{row['flight_cost']:,.2f}</p>
+                        <p><strong>Per Diem:</strong> ₦{row['per_diem_amount']:,.2f}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with col2:
+                    if st.button("Mark as Paid", key=f"paid_{row['id']}"):
+                        c = conn.cursor()
+                        c.execute("""UPDATE travel_costs 
+                                  SET payment_status = 'paid', 
+                                      paid_by = ?,
+                                      paid_at = CURRENT_TIMESTAMP
+                                  WHERE id = ?""",
+                                 (st.session_state.full_name, row['id']))
+                        conn.commit()
+                        st.success("Payment marked as paid!")
+                        time.sleep(1)
+                        st.rerun()
+    else:
+        st.info("No payments pending processing")
+    
+    conn.close()
+
+def budget_analytics():
+    """Budget analytics dashboard"""
+    st.markdown('<h1 class="sub-header">Budget Analytics</h1>', unsafe_allow_html=True)
+    
+    conn = sqlite3.connect('travel_app.db')
+    
+    # Get budget data
+    query = """
+    SELECT department, year, month, 
+           SUM(planned_budget) as planned_budget,
+           SUM(actual_spent) as actual_spent,
+           SUM(ytd_budget) as ytd_budget,
+           SUM(ytd_actual) as ytd_actual,
+           SUM(variance) as variance,
+           AVG(variance_percentage) as variance_percentage
+    FROM budgets
+    GROUP BY department, year, month
+    ORDER BY year DESC, month DESC
+    """
+    
+    df = pd.read_sql(query, conn)
+    
+    if not df.empty:
+        # Display metrics
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            total_budget = df['planned_budget'].sum()
+            st.metric("Total Planned Budget", f"₦{total_budget:,.2f}")
+        
+        with col2:
+            total_actual = df['actual_spent'].sum()
+            st.metric("Total Actual Spent", f"₦{total_actual:,.2f}")
+        
+        with col3:
+            total_variance = df['variance'].sum()
+            st.metric("Total Variance", f"₦{total_variance:,.2f}")
+        
+        with col4:
+            avg_variance_pct = df['variance_percentage'].mean()
+            st.metric("Avg Variance %", f"{avg_variance_pct:.1f}%")
+        
+        st.markdown("---")
+        
+        # Detailed table
+        st.subheader("Budget Details by Department")
+        st.dataframe(df.style.format({
+            'planned_budget': '₦{:,.2f}',
+            'actual_spent': '₦{:,.2f}',
+            'ytd_budget': '₦{:,.2f}',
+            'ytd_actual': '₦{:,.2f}',
+            'variance': '₦{:,.2f}',
+            'variance_percentage': '{:.1f}%'
+        }))
+        
+        # Export to Excel
+        if st.button("📥 Export to Excel"):
+            excel_file = io.BytesIO()
+            df.to_excel(excel_file, index=False)
+            excel_file.seek(0)
+            st.download_button(
+                label="Download Budget Report",
+                data=excel_file,
+                file_name="budget_analytics.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        
+        # Visualization
+        st.markdown("---")
+        st.subheader("Budget vs Actual Visualization")
+        
+        fig = go.Figure(data=[
+            go.Bar(name='Planned Budget', x=df['department'], y=df['planned_budget']),
+            go.Bar(name='Actual Spent', x=df['department'], y=df['actual_spent'])
+        ])
+        fig.update_layout(barmode='group', title='Budget vs Actual by Department')
+        st.plotly_chart(fig, use_container_width=True)
+        
+    else:
+        st.info("No budget data available")
+    
     conn.close()
 
 def analytics_dashboard():
-    """Analytics dashboard"""
-    st.markdown('<h1 class="sub-header">Analytics Dashboard</h1>', unsafe_allow_html=True)
+    """Main analytics dashboard"""
+    st.markdown('<h1 class="sub-header">Travel Analytics</h1>', unsafe_allow_html=True)
     
     conn = sqlite3.connect('travel_app.db')
     
-    # Get data for charts
-    travel_data = pd.read_sql("""
-        SELECT tr.*, u.department, u.grade 
-        FROM travel_requests tr 
-        JOIN users u ON tr.username = u.username
-    """, conn)
+    # Get comprehensive travel data
+    query = """
+    SELECT tr.*, u.department, u.grade, 
+           tc.total_cost, tc.flight_cost, tc.payment_status,
+           CASE 
+               WHEN tc.payment_status = 'paid' THEN 'Paid'
+               WHEN tr.status = 'approved' AND tc.id IS NOT NULL THEN 'Approved for Payment'
+               WHEN tr.status = 'approved' THEN 'Approved'
+               WHEN tr.status = 'pending' THEN 'Pending'
+               ELSE 'Rejected'
+           END as overall_status
+    FROM travel_requests tr
+    LEFT JOIN users u ON tr.username = u.username
+    LEFT JOIN travel_costs tc ON tr.id = tc.request_id
+    ORDER BY tr.created_at DESC
+    """
     
-    if not travel_data.empty:
-        # Convert dates
-        travel_data['departure_date'] = pd.to_datetime(travel_data['departure_date'])
-        travel_data['month'] = travel_data['departure_date'].dt.strftime('%Y-%m')
-        
-        # Charts
-        col1, col2 = st.columns(2)
+    df = pd.read_sql(query, conn)
+    
+    if not df.empty:
+        # Metrics
+        col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            # Travel by department
-            dept_counts = travel_data['department'].value_counts()
-            fig1 = px.pie(values=dept_counts.values, names=dept_counts.index,
-                         title="Travel Requests by Department")
-            st.plotly_chart(fig1, use_container_width=True)
+            total_requests = len(df)
+            st.metric("Total Requests", total_requests)
         
         with col2:
-            # Travel by status
-            status_counts = travel_data['status'].value_counts()
-            fig2 = px.bar(x=status_counts.index, y=status_counts.values,
-                         title="Travel Requests by Status",
-                         color=status_counts.index)
-            st.plotly_chart(fig2, use_container_width=True)
-        
-        col3, col4 = st.columns(2)
+            approved_count = len(df[df['status'] == 'approved'])
+            st.metric("Approved", approved_count)
         
         with col3:
-            # Monthly trend
-            monthly_counts = travel_data.groupby('month').size().reset_index(name='count')
-            fig3 = px.line(monthly_counts, x='month', y='count',
-                          title="Monthly Travel Requests Trend")
-            st.plotly_chart(fig3, use_container_width=True)
+            paid_count = len(df[df['payment_status'] == 'paid'])
+            st.metric("Paid", paid_count)
         
         with col4:
-            # Travel by type
-            type_counts = travel_data['travel_type'].value_counts()
-            fig4 = px.bar(x=type_counts.index, y=type_counts.values,
-                         title="Local vs International Travel",
-                         color=type_counts.index)
+            total_cost = df['total_cost'].sum()
+            st.metric("Total Cost", f"₦{total_cost:,.2f}")
+        
+        st.markdown("---")
+        
+        # Export to Excel
+        if st.button("📥 Export All Data to Excel"):
+            excel_file = io.BytesIO()
+            df.to_excel(excel_file, index=False)
+            excel_file.seek(0)
+            st.download_button(
+                label="Download Full Report",
+                data=excel_file,
+                file_name="travel_analytics_full.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        
+        # Tabs for different analytics
+        tab1, tab2, tab3, tab4 = st.tabs(["Department Analysis", "Cost Analysis", "Timeline", "Geographic"])
+        
+        with tab1:
+            dept_analysis = df.groupby('department').agg({
+                'id': 'count',
+                'total_cost': 'sum'
+            }).rename(columns={'id': 'count'})
+            
+            fig1 = px.bar(dept_analysis, x=dept_analysis.index, y='count',
+                         title='Travel Requests by Department')
+            st.plotly_chart(fig1, use_container_width=True)
+            
+            fig2 = px.pie(df, names='status', title='Request Status Distribution')
+            st.plotly_chart(fig2, use_container_width=True)
+        
+        with tab2:
+            cost_by_dept = df.groupby('department')['total_cost'].sum().reset_index()
+            fig3 = px.bar(cost_by_dept, x='department', y='total_cost',
+                         title='Total Travel Cost by Department')
+            st.plotly_chart(fig3, use_container_width=True)
+        
+        with tab3:
+            df['month'] = pd.to_datetime(df['created_at']).dt.to_period('M')
+            monthly = df.groupby('month').agg({
+                'id': 'count',
+                'total_cost': 'sum'
+            }).reset_index()
+            monthly['month'] = monthly['month'].astype(str)
+            
+            fig4 = px.line(monthly, x='month', y='id',
+                          title='Monthly Travel Requests')
             st.plotly_chart(fig4, use_container_width=True)
         
-        # Cost analysis (for admin)
-        if st.session_state.role == "admin":
-            st.markdown("### Cost Analysis")
-            
-            cost_data = pd.read_sql("""
-                SELECT tc.*, tr.destination, tr.travel_type, u.department 
-                FROM travel_costs tc 
-                JOIN travel_requests tr ON tc.request_id = tr.id 
-                JOIN users u ON tr.username = u.username 
-                WHERE tc.total_cost IS NOT NULL
-            """, conn)
-            
-            if not cost_data.empty:
-                col5, col6 = st.columns(2)
-                
-                with col5:
-                    # Cost by department
-                    dept_costs = cost_data.groupby('department')['total_cost'].sum().reset_index()
-                    fig5 = px.bar(dept_costs, x='department', y='total_cost',
-                                 title="Total Costs by Department")
-                    st.plotly_chart(fig5, use_container_width=True)
-                
-                with col6:
-                    # Cost by grade
-                    grade_costs = cost_data.groupby('grade')['total_cost'].mean().reset_index()
-                    fig6 = px.bar(grade_costs, x='grade', y='total_cost',
-                                 title="Average Cost by Grade")
-                    st.plotly_chart(fig6, use_container_width=True)
+        with tab4:
+            state_counts = df.groupby('state').size().reset_index(name='count')
+            fig5 = px.choropleth(state_counts, 
+                                locations=state_counts['state'],
+                                locationmode='country names',
+                                color='count',
+                                hover_name='state',
+                                title='Travel Requests by State')
+            st.plotly_chart(fig5, use_container_width=True)
+    
+    else:
+        st.info("No travel data available for analytics")
     
     conn.close()
 
 def admin_panel():
-    """Admin panel for managing travel costs"""
+    """Admin panel (for system admin only)"""
     if st.session_state.role != "admin":
-        st.warning("Access denied")
+        st.warning("Access denied. Admin privileges required.")
         return
     
-    st.markdown('<h1 class="sub-header">Admin Panel - Travel Cost Management</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="sub-header">Admin Panel</h1>', unsafe_allow_html=True)
     
+    # System stats
     conn = sqlite3.connect('travel_app.db')
     
-    # Get approved travel requests needing cost input
-    query = """
-        SELECT tr.*, u.full_name, u.grade, u.department, tc.id as cost_id 
-        FROM travel_requests tr 
-        JOIN users u ON tr.username = u.username 
-        LEFT JOIN travel_costs tc ON tr.id = tc.request_id 
-        WHERE tr.status = 'approved' 
-        AND (tc.id IS NULL OR tc.status = 'pending')
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        total_users = pd.read_sql("SELECT COUNT(*) as count FROM users", conn).iloc[0]['count']
+        st.metric("Total Users", total_users)
+    
+    with col2:
+        total_requests = pd.read_sql("SELECT COUNT(*) as count FROM travel_requests", conn).iloc[0]['count']
+        st.metric("Total Requests", total_requests)
+    
+    with col3:
+        total_payments = pd.read_sql("SELECT COUNT(*) as count FROM travel_costs WHERE payment_status = 'paid'", conn).iloc[0]['count']
+        st.metric("Paid Transactions", total_payments)
+    
+    st.markdown("---")
+    
+    # Database management
+    st.subheader("Database Management")
+    
+    if st.button("Reset Database (Development Only)"):
+        if st.checkbox("I understand this will delete all data"):
+            os.remove('travel_app.db')
+            init_db()
+            st.success("Database reset successfully!")
+            st.rerun()
+    
+    # System logs
+    st.subheader("System Logs")
+    logs_query = """
+    SELECT tr.id, tr.username, tr.status, tr.created_at, 
+           u.full_name, u.department
+    FROM travel_requests tr
+    JOIN users u ON tr.username = u.username
+    ORDER BY tr.created_at DESC
+    LIMIT 50
     """
     
-    approved_requests = pd.read_sql(query, conn)
-    
-    if not approved_requests.empty:
-        for _, row in approved_requests.iterrows():
-            with st.expander(f"{row['full_name']} - {row['destination']} ({row['travel_type']})"):
-                
-                # Calculate estimated costs
-                grade_category = get_grade_category(row['grade'])
-                
-                if row['travel_type'] == 'local':
-                    policy = LOCAL_POLICY[grade_category]
-                    st.markdown("**Local Travel Policy:**")
-                    col_a, col_b = st.columns(2)
-                    with col_a:
-                        st.metric("Hotel Allowance", 
-                                 f"₦{policy['hotel']:,}" if isinstance(policy['hotel'], int) else policy['hotel'])
-                    with col_b:
-                        st.metric("Feeding Allowance", 
-                                 f"₦{policy['feeding']:,}" if isinstance(policy['feeding'], int) else policy['feeding'])
-                    
-                    estimated_cost = 0
-                    if isinstance(policy['hotel'], int):
-                        estimated_cost = (policy['hotel'] + (policy['feeding'] * 3)) * row['duration_nights']
-                    
-                else:
-                    policy = INTERNATIONAL_POLICY[grade_category]
-                    st.markdown("**International Travel Policy:**")
-                    col_a, col_b, col_c, col_d = st.columns(4)
-                    with col_a:
-                        st.metric("In-lieu", f"${policy['in_lieu']}")
-                    with col_b:
-                        st.metric("Out of Station", f"${policy['out_of_station']}")
-                    with col_c:
-                        st.metric("Airport Taxi", f"${policy['airport_taxi']}")
-                    with col_d:
-                        st.metric("Total per day", f"${policy['total']}")
-                    
-                    estimated_cost = policy['total'] * row['duration_nights']
-                
-                st.markdown(f"**Estimated Total Cost:** ${estimated_cost:,.2f}" if row['travel_type'] == 'international' 
-                          else f"**Estimated Total Cost:** ₦{estimated_cost:,.2f}")
-                
-                # Cost input form
-                with st.form(f"cost_form_{row['id']}"):
-                    flight_cost = st.number_input("Flight Cost", 
-                                                 min_value=0.0, 
-                                                 value=0.0,
-                                                 key=f"flight_{row['id']}")
-                    
-                    supporting_docs = st.file_uploader("Supporting Documents", 
-                                                      type=['pdf', 'jpg', 'png'],
-                                                      key=f"docs_{row['id']}")
-                    
-                    admin_notes = st.text_area("Admin Notes", key=f"notes_{row['id']}")
-                    
-                    if st.form_submit_button("Submit Costs"):
-                        # Update travel costs
-                        total_cost = estimated_cost + flight_cost
-                        
-                        c = conn.cursor()
-                        if pd.isna(row['cost_id']):
-                            c.execute("""INSERT INTO travel_costs 
-                                       (request_id, grade, per_diem_amount, flight_cost, 
-                                        total_cost, admin_notes, status) 
-                                       VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                                     (row['id'], row['grade'], estimated_cost, flight_cost,
-                                      total_cost, admin_notes, "pending"))
-                        else:
-                            c.execute("""UPDATE travel_costs 
-                                       SET per_diem_amount = ?, flight_cost = ?, 
-                                           total_cost = ?, admin_notes = ?, status = 'pending' 
-                                       WHERE id = ?""",
-                                     (estimated_cost, flight_cost, total_cost, admin_notes, row['cost_id']))
-                        
-                        conn.commit()
-                        st.success("Costs submitted for approval!")
+    logs_df = pd.read_sql(logs_query, conn)
+    st.dataframe(logs_df)
     
     conn.close()
 
 def manage_users():
-    """User management for admin"""
+    """Manage users (for admin only)"""
     if st.session_state.role != "admin":
-        st.warning("Access denied")
+        st.warning("Access denied. Admin privileges required.")
         return
     
     st.markdown('<h1 class="sub-header">User Management</h1>', unsafe_allow_html=True)
     
     conn = sqlite3.connect('travel_app.db')
     
-    # Get all users
-    users = pd.read_sql("SELECT * FROM users", conn)
+    # Display all users
+    users_df = pd.read_sql("SELECT id, full_name, username, email, department, grade, role, employee_id FROM users", conn)
     
-    if not users.empty:
-        # Display users table
-        st.dataframe(users[['full_name', 'username', 'email', 'department', 'grade', 'role', 'created_at']])
+    if not users_df.empty:
+        st.dataframe(users_df)
         
-        # Add new user form
-        st.markdown("### Add New User")
-        with st.form("add_user_form"):
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                new_full_name = st.text_input("Full Name")
-                new_username = st.text_input("Username")
-                new_email = st.text_input("Email")
-                new_password = st.text_input("Password", type="password")
-            
-            with col2:
-                new_department = st.selectbox("Department", DEPARTMENTS)
-                new_grade = st.selectbox("Grade", GRADES)
-                new_role = st.selectbox("Role", ROLES)
-            
-            submitted = st.form_submit_button("Add User")
-            
-            if submitted:
-                if all([new_full_name, new_username, new_email, new_password]):
+        # User actions
+        st.subheader("User Actions")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            user_to_edit = st.selectbox("Select User", users_df['username'].tolist())
+            if user_to_edit:
+                user_data = users_df[users_df['username'] == user_to_edit].iloc[0]
+                
+                new_role = st.selectbox("New Role", ROLES, index=ROLES.index(user_data['role']) if user_data['role'] in ROLES else 0)
+                new_dept = st.selectbox("New Department", DEPARTMENTS, index=DEPARTMENTS.index(user_data['department']) if user_data['department'] in DEPARTMENTS else 0)
+                
+                if st.button("Update User"):
                     c = conn.cursor()
-                    try:
-                        c.execute("""INSERT INTO users 
-                                   (full_name, username, email, password, department, grade, role) 
-                                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                                 (new_full_name, new_username, new_email, 
-                                  make_hashes(new_password), new_department, new_grade, new_role))
-                        conn.commit()
-                        st.success("User added successfully!")
-                        st.rerun()
-                    except:
-                        st.error("Username or email already exists")
+                    c.execute("UPDATE users SET role = ?, department = ? WHERE username = ?",
+                             (new_role, new_dept, user_to_edit))
+                    conn.commit()
+                    st.success("User updated successfully!")
+                    st.rerun()
+        
+        with col2:
+            delete_user = st.selectbox("Delete User", users_df['username'].tolist(), key="delete_select")
+            if st.button("Delete User", type="primary"):
+                if delete_user != st.session_state.username:
+                    c = conn.cursor()
+                    c.execute("DELETE FROM users WHERE username = ?", (delete_user,))
+                    conn.commit()
+                    st.success("User deleted successfully!")
+                    st.rerun()
                 else:
-                    st.error("Please fill all fields")
+                    st.error("Cannot delete your own account!")
+    else:
+        st.info("No users found")
     
     conn.close()
 
