@@ -504,29 +504,29 @@ def init_db():
 # Initialize database
 init_db()
 
-# Helper functions
 def get_approval_flow(department, grade, role):
     """Determine approval flow based on department and role"""
     if department == "Finance and Investment":
-        return ["CFO/ED", "MD"]
+        return ["Head of Department", "CFO/ED", "MD"]
     elif department == "Administration":
-        return ["CFO/ED", "MD"]
+        return ["Head of Department", "CFO/ED", "MD"]
     elif department in ["Internal Control and Risk", "Internal Audit"]:
-        return ["Chief Risk Officer", "MD"]
+        return ["Head of Department", "Chief Risk Officer", "MD"]
     elif department == "HR":
-        return ["MD"]
-    elif department == "Agencies":
-        return ["Chief Agency Officer", "MD"]
-    elif department == "Legal and Compliance":
-        return ["Chief Compliance Officer", "MD"]
-    elif department == "Corporate Sales":
-        return ["Chief Commercial Officer", "MD"]
-    elif department == "Office of Executive Director":
-        return ["ED", "MD"]
-    elif department == "Office of CEO":
-        return ["MD"]
-    else:
         return ["Head of Department", "MD"]
+    elif department == "Agencies":
+        return ["Head of Department", "Chief Agency Officer", "MD"]
+    elif department == "Legal and Compliance":
+        return ["Head of Department", "Chief Compliance Officer", "MD"]
+    elif department == "Corporate Sales":
+        return ["Head of Department", "Chief Commercial Officer", "MD"]
+    elif department == "Office of Executive Director":
+        return ["Head of Department", "ED", "MD"]
+    elif department == "Office of CEO":
+        return ["Head of Department", "MD"]
+    else:
+        # Default for other departments
+        return ["Head of Department", "CFO/ED", "MD"]
 
 def get_payment_approval_flow(total_amount):
     """Get payment approval flow based on amount"""
@@ -665,7 +665,6 @@ def generate_pdf_report(request_id):
     pdf_bytes = pdf.output(dest='S').encode('latin-1')
     return pdf_bytes
 
-# NEW FUNCTIONS FOR APPROVAL WORKFLOW
 def get_pending_approvals_for_role(role):
     """Get all pending approvals for a specific role"""
     conn = sqlite3.connect('travel_app.db')
@@ -677,10 +676,10 @@ def get_pending_approvals_for_role(role):
             FROM travel_requests tr 
             JOIN users u ON tr.user_id = u.id 
             WHERE tr.status = 'pending' 
-            AND tr.current_approver = ?
+            AND tr.current_approver = 'CFO/ED'
             ORDER BY tr.created_at DESC
         """
-        approvals = pd.read_sql(query, conn, params=("CFO/ED",))
+        approvals = pd.read_sql(query, conn, params=())
     
     # For MD role
     elif role == "MD":
@@ -689,14 +688,14 @@ def get_pending_approvals_for_role(role):
             FROM travel_requests tr 
             JOIN users u ON tr.user_id = u.id 
             WHERE tr.status = 'pending' 
-            AND tr.current_approver = ?
+            AND tr.current_approver = 'MD'
             ORDER BY tr.created_at DESC
         """
-        approvals = pd.read_sql(query, conn, params=("MD",))
+        approvals = pd.read_sql(query, conn, params=())
     
-    # For Head of Department role
+    # For Head of Department role - users who are Heads of their departments
     elif role == "Head of Department":
-        # Get all departments where this user is the head
+        # Get users who are Heads of their departments
         query = """
             SELECT tr.*, u.full_name, u.department, u.grade 
             FROM travel_requests tr 
@@ -708,8 +707,8 @@ def get_pending_approvals_for_role(role):
         """
         approvals = pd.read_sql(query, conn, params=(st.session_state.department,))
     
+    # For other specific roles like Chief Compliance Officer, etc.
     else:
-        # For other specific roles
         query = """
             SELECT tr.*, u.full_name, u.department, u.grade 
             FROM travel_requests tr 
@@ -722,7 +721,6 @@ def get_pending_approvals_for_role(role):
     
     conn.close()
     return approvals
-
 def process_approval(request_id, action, comments=""):
     """Process approval or rejection of a travel request"""
     conn = sqlite3.connect('travel_app.db')
@@ -738,13 +736,14 @@ def process_approval(request_id, action, comments=""):
     
     # Get approval flow
     approval_flow = json.loads(request[15])  # Column 15 is approval_flow
+    current_approver = request[13]  # Column 13 is current_approver
     
     # Find current approver index
     try:
-        current_index = approval_flow.index(request[13])  # Column 13 is current_approver
+        current_index = approval_flow.index(current_approver) if current_approver else -1
     except ValueError:
         conn.close()
-        return False, "Approval flow error"
+        return False, f"Approval flow error: {current_approver} not found in {approval_flow}"
     
     if action == "approve":
         # Move to next approver or complete
@@ -1640,7 +1639,6 @@ def show_approvals():
                 st.markdown("---")
     else:
         st.success("🎉 No pending approvals! You're all caught up.")
-
 def admin_panel():
     """Admin panel for managing travel costs"""
     if st.session_state.role not in ["Head of Administration", "admin"]:
@@ -1658,7 +1656,7 @@ def admin_panel():
         JOIN users u ON tr.user_id = u.id 
         LEFT JOIN travel_costs tc ON tr.id = tc.request_id 
         WHERE tr.status = 'approved' 
-        AND (tc.id IS NULL OR tc.status = 'pending')
+        AND (tc.id IS NULL OR tc.payment_status = 'pending' OR tc.payment_status = 'draft')
         ORDER BY tr.created_at DESC
     """
     
@@ -1712,7 +1710,13 @@ def admin_panel():
                         total_cost = estimated_cost + flight_cost
                         
                         c = conn.cursor()
-                        if pd.isna(row['cost_id']):
+                        
+                        # Check if cost record exists
+                        c.execute("SELECT id FROM travel_costs WHERE request_id = ?", (row['id'],))
+                        existing_cost = c.fetchone()
+                        
+                        if not existing_cost:
+                            # Insert new cost record
                             c.execute("""INSERT INTO travel_costs 
                                        (request_id, grade, per_diem_amount, flight_cost, 
                                         total_cost, budgeted_cost, budget_balance,
@@ -1722,14 +1726,15 @@ def admin_panel():
                                       total_cost, budgeted_cost, budget_balance,
                                       admin_notes, "pending" if submit_btn else "draft", 1))
                         else:
+                            # Update existing cost record
                             c.execute("""UPDATE travel_costs 
                                        SET per_diem_amount = ?, flight_cost = ?, 
                                            total_cost = ?, budgeted_cost = ?, budget_balance = ?,
                                            admin_notes = ?, payment_status = ?, approved_by_admin = 1 
-                                       WHERE id = ?""",
+                                       WHERE request_id = ?""",
                                      (estimated_cost, flight_cost, total_cost, budgeted_cost,
                                       budget_balance, admin_notes, 
-                                      "pending" if submit_btn else "draft", row['cost_id']))
+                                      "pending" if submit_btn else "draft", row['id']))
                         
                         # Create approval record
                         if submit_btn:
@@ -1740,6 +1745,19 @@ def admin_panel():
                                       "approved", "Costs submitted for payment approval"))
                         
                         conn.commit()
+                        
+                        if submit_btn:
+                            st.success("✅ Costs submitted for payment approval!")
+                            st.info("**Next:** Chief Compliance Officer approval")
+                        else:
+                            st.info("💾 Draft saved successfully")
+                        
+                        time.sleep(2)
+                        st.rerun()
+    else:
+        st.info("No approved requests pending cost input")
+    
+    conn.close()
                         
                         if submit_btn:
                             st.success("✅ Costs submitted for payment approval!")
@@ -2255,3 +2273,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
