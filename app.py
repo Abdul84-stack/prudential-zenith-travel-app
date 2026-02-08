@@ -14,9 +14,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 from streamlit_option_menu import option_menu
 import time
-import pdfkit
-from fpdf import FPDF
 import tempfile
+from fpdf import FPDF
 
 # Page configuration
 st.set_page_config(
@@ -267,7 +266,7 @@ def init_db():
                   variance_percentage REAL,
                   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
     
-    # Create default users with new roles
+    # Create default users with new roles - INCLUDING MD and ED
     default_users = [
         ("CFO/Executive Director", "cfo_ed", "cfo@prudentialzenith.com", 
          make_hashes("0123456"), "Finance and Investment", "ED", "ED", "ED001",
@@ -480,10 +479,10 @@ def generate_pdf_report(request_data, cost_data, user_data):
         pdf.set_font('Arial', 'B', 12)
         pdf.cell(200, 10, 'Cost Details', 0, 1, 'L')
         pdf.set_font('Arial', '', 10)
-        pdf.cell(200, 6, f'Flight Cost: ₦{cost_data["flight_cost"]:,.2f}', 0, 1)
-        pdf.cell(200, 6, f'Per Diem: ₦{cost_data["per_diem_amount"]:,.2f}', 0, 1)
-        pdf.cell(200, 6, f'Total Cost: ₦{cost_data["total_cost"]:,.2f}', 0, 1)
-        pdf.cell(200, 6, f'Budget Balance: ₦{cost_data["budget_balance"]:,.2f}', 0, 1)
+        pdf.cell(200, 6, f'Flight Cost: ₦{cost_data.get("flight_cost", 0):,.2f}', 0, 1)
+        pdf.cell(200, 6, f'Per Diem: ₦{cost_data.get("per_diem_amount", 0):,.2f}', 0, 1)
+        pdf.cell(200, 6, f'Total Cost: ₦{cost_data.get("total_cost", 0):,.2f}', 0, 1)
+        pdf.cell(200, 6, f'Budget Balance: ₦{cost_data.get("budget_balance", 0):,.2f}', 0, 1)
         pdf.ln(5)
     
     # Approval Status
@@ -491,7 +490,8 @@ def generate_pdf_report(request_data, cost_data, user_data):
     pdf.cell(200, 10, 'Approval Status', 0, 1, 'L')
     pdf.set_font('Arial', '', 10)
     pdf.cell(200, 6, f'Status: {request_data["status"].upper()}', 0, 1)
-    pdf.cell(200, 6, f'Payment Status: {cost_data.get("payment_status", "N/A") if cost_data else "N/A"}', 0, 1)
+    payment_status = cost_data.get("payment_status", "N/A") if cost_data else "N/A"
+    pdf.cell(200, 6, f'Payment Status: {payment_status}', 0, 1)
     pdf.ln(10)
     
     # Footer
@@ -532,7 +532,7 @@ def login():
         with col_b:
             register_btn = st.button("**CREATE ACCOUNT**", use_container_width=True)
         
-        # Quick login info
+        # Quick login info with ALL credentials including MD and ED
         st.markdown('<div class="quick-login">', unsafe_allow_html=True)
         st.markdown('<h4>🔑 Quick Login (Test Credentials)</h4>', unsafe_allow_html=True)
         st.markdown("""
@@ -678,23 +678,38 @@ def dashboard():
             menu_options.extend(["Payments"])
         elif st.session_state.role == "admin":
             menu_options.extend(["Admin Panel", "Manage Users"])
+        elif st.session_state.role in ["MD", "ED", "Chief Compliance Officer", "Chief Risk Officer"]:
+            menu_options.extend(["Payment Approvals"])
+        
+        # Fix the icon mapping issue
+        icon_mapping = {
+            "Dashboard": "house",
+            "Staff Profile": "person",
+            "Travel Request": "airplane",
+            "Travel History": "clock-history",
+            "Approvals": "check-circle",
+            "Analytics": "graph-up",
+            "Admin: Payment Requests": "currency-dollar",
+            "Budget Analytics": "pie-chart",
+            "Payments": "credit-card",
+            "Payment Approvals": "shield-check",
+            "Admin Panel": "gear",
+            "Manage Users": "people"
+        }
+        
+        icons = [icon_mapping[option] for option in menu_options]
         
         selected = option_menu(
             menu_title="Navigation",
             options=menu_options,
-            icons=["house", "person", "airplane", "clock-history", "check-circle", "graph-up", 
-                   "currency-dollar", "pie-chart", "gear", "people"] if "Admin: Payment Requests" in menu_options else 
-                   ["house", "person", "airplane", "clock-history", "check-circle", "graph-up",
-                   "currency-dollar", "gear", "people"] if "Payments" in menu_options else
-                   ["house", "person", "airplane", "clock-history", "check-circle", "graph-up",
-                   "gear", "people"],
+            icons=icons,
             menu_icon="cast",
             default_index=0,
             styles={
                 "container": {"padding": "0!important", "background-color": "#fafafa"},
                 "icon": {"color": "#D32F2F", "font-size": "18px"}, 
                 "nav-link": {"font-size": "16px", "text-align": "left", "margin": "0px", "--hover-color": "#eee"},
-                "nav-link-selected": {"background-color": #D32F2F, "color": "white"},
+                "nav-link-selected": {"background-color": "#D32F2F", "color": "white"},
             }
         )
         
@@ -724,6 +739,8 @@ def dashboard():
         budget_analytics()
     elif selected == "Payments":
         payments_panel()
+    elif selected == "Payment Approvals":
+        payment_approvals_panel()
     elif selected == "Admin Panel":
         admin_panel()
     elif selected == "Manage Users":
@@ -838,8 +855,11 @@ def show_profile():
             st.subheader("Profile Picture")
             current_pic = None
             if user[12]:  # profile_pic
-                current_pic = Image.open(io.BytesIO(user[12]))
-                st.image(current_pic, caption="Current Profile Picture", width=150)
+                try:
+                    current_pic = Image.open(io.BytesIO(user[12]))
+                    st.image(current_pic, caption="Current Profile Picture", width=150)
+                except:
+                    st.info("Current profile picture cannot be displayed")
             
             new_pic = st.file_uploader("Upload new profile picture", type=['jpg', 'jpeg', 'png'])
             
@@ -1039,7 +1059,8 @@ def travel_history():
                             label="Click to Download PDF",
                             data=f,
                             file_name=f"travel_report_{row['id']}.pdf",
-                            mime="application/pdf"
+                            mime="application/pdf",
+                            key=f"download_{row['id']}"
                         )
                     
                     # Clean up
@@ -1259,6 +1280,103 @@ def admin_payment_requests():
                         st.rerun()
     else:
         st.info("No approved travel requests pending cost entry")
+    
+    conn.close()
+
+def payment_approvals_panel():
+    """Payment approvals for ED, MD, Chief Compliance Officer, Chief Risk Officer"""
+    if st.session_state.role not in ["ED", "MD", "Chief Compliance Officer", "Chief Risk Officer"]:
+        st.warning("You don't have payment approval privileges")
+        return
+    
+    st.markdown('<h1 class="sub-header">Payment Approvals</h1>', unsafe_allow_html=True)
+    
+    conn = sqlite3.connect('travel_app.db')
+    
+    # Get pending payment approvals for current approver
+    query = """
+    SELECT tc.*, tr.username, u.full_name, u.employee_id, u.department, u.grade,
+           tr.destination, tr.city, tr.purpose
+    FROM travel_costs tc
+    JOIN travel_requests tr ON tc.request_id = tr.id
+    JOIN users u ON tr.username = u.username
+    WHERE tc.status = 'pending'
+    AND tc.current_approver = ?
+    ORDER BY tc.created_at DESC
+    """
+    
+    df = pd.read_sql(query, conn, params=(st.session_state.role,))
+    
+    if not df.empty:
+        st.write(f"You have {len(df)} pending payment approval(s)")
+        
+        for _, row in df.iterrows():
+            with st.container():
+                col1, col2 = st.columns([3, 1])
+                
+                with col1:
+                    st.markdown(f"""
+                    <div class="card pending">
+                        <h4>Payment Request #{row['id']}</h4>
+                        <p><strong>Employee:</strong> {row['full_name']} ({row['employee_id']})</p>
+                        <p><strong>Department:</strong> {row['department']}</p>
+                        <p><strong>Destination:</strong> {row['destination']}, {row['city']}</p>
+                        <p><strong>Purpose:</strong> {row['purpose']}</p>
+                        <p><strong>Flight Cost:</strong> ₦{row['flight_cost']:,.2f}</p>
+                        <p><strong>Total Cost:</strong> ₦{row['total_cost']:,.2f}</p>
+                        <p><strong>Budget Balance:</strong> ₦{row['budget_balance']:,.2f}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with col2:
+                    st.write("**Action Required**")
+                    action = st.selectbox("Action", ["Approve", "Reject"], 
+                                        key=f"payment_action_{row['id']}")
+                    comments = st.text_area("Comments", key=f"payment_comments_{row['id']}")
+                    
+                    if st.button("Submit Decision", key=f"payment_submit_{row['id']}"):
+                        c = conn.cursor()
+                        
+                        # Parse approval flow
+                        approval_flow = json.loads(row['approval_flow'])
+                        current_index = approval_flow.index(st.session_state.role)
+                        
+                        if action == "Approve":
+                            if current_index < len(approval_flow) - 1:
+                                # Move to next approver
+                                next_approver = approval_flow[current_index + 1]
+                                status = 'pending'
+                                c.execute("""UPDATE travel_costs 
+                                          SET current_approver = ?
+                                          WHERE id = ?""",
+                                         (next_approver, row['id']))
+                            else:
+                                # Final approval
+                                status = 'approved'
+                                c.execute("""UPDATE travel_costs 
+                                          SET status = 'approved'
+                                          WHERE id = ?""",
+                                         (row['id'],))
+                        else:
+                            # Rejected
+                            status = 'rejected'
+                            c.execute("""UPDATE travel_costs 
+                                      SET status = 'rejected'
+                                      WHERE id = ?""",
+                                     (row['id'],))
+                        
+                        # Record approval decision
+                        c.execute("""INSERT INTO approvals (request_id, cost_id, approver_role, approver_name, status, comments)
+                                  VALUES (?, ?, ?, ?, ?, ?)""",
+                                 (row['request_id'], row['id'], st.session_state.role, 
+                                  st.session_state.full_name, action.lower(), comments))
+                        
+                        conn.commit()
+                        st.success(f"Payment decision submitted: {action}")
+                        time.sleep(1)
+                        st.rerun()
+    else:
+        st.info("No pending payment approvals")
     
     conn.close()
 
