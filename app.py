@@ -255,7 +255,9 @@ if 'full_name' not in st.session_state:
 if 'user_id' not in st.session_state:
     st.session_state.user_id = None
 if 'selected_state' not in st.session_state:
-    st.session_state.selected_state = None
+    st.session_state.selected_state = "Abia"  # Default state
+if 'show_registration' not in st.session_state:
+    st.session_state.show_registration = False
 
 # Constants
 DEPARTMENTS = [
@@ -272,64 +274,121 @@ ROLES = ["Employee", "Head of Department", "Head of Administration", "Chief Comm
          "Chief Agency Officer", "Chief Compliance Officer", "Chief Risk Officer", 
          "CFO/ED", "ED", "MD", "Payables Officer", "admin"]
 
-# Updated Nigerian states with more cities - FIXED: Properly structured dictionary
+# UPDATED: Nigerian states with more cities
 NIGERIAN_STATES = {
-    "Abia": ["Aba", "Umuahia", "Arochukwu", "Ohafia", "Bende", "Isuikwuato"],
-    "Adamawa": ["Yola", "Mubi", "Jimeta", "Ganye", "Numan", "Mayo-Belwa", "Michika"],
-    "Akwa Ibom": ["Uyo", "Eket", "Ikot Ekpene", "Oron", "Ikot Abasi", "Abak", "Etinan"],
-    "Anambra": ["Awka", "Onitsha", "Nnewi", "Aguata", "Ogidi", "Ekwulobia", "Ozubulu"],
-    "Bauchi": ["Bauchi", "Azare", "Jama'are", "Katagum", "Misau", "Ningi", "Darazo"],
-    "Bayelsa": ["Yenagoa", "Brass", "Ogbia", "Sagbama", "Ekeremor", "Nembe", "Amassoma"],
-    "Benue": ["Makurdi", "Gboko", "Otukpo", "Katsina-Ala", "Vandeikya", "Adikpo", "Aliade"],
-    "Borno": ["Maiduguri", "Bama", "Dikwa", "Gwoza", "Monguno", "Biu", "Konduga"],
-    "Cross River": ["Calabar", "Ugep", "Ogoja", "Obudu", "Ikom", "Akamkpa", "Obubra"],
-    "Delta": ["Asaba", "Warri", "Sapele", "Ughelli", "Burutu", "Agbor", "Ozoro"],
-    "Ebonyi": ["Abakaliki", "Afikpo", "Onueke", "Edda", "Ishielu", "Ezza", "Ikwo"],
-    "Edo": ["Benin City", "Auchi", "Ekpoma", "Igueben", "Uromi", "Irrua", "Oredo"],
-    "Ekiti": ["Ado-Ekiti", "Ikere", "Ijun-Ekiti", "Oye", "Ikole", "Efon", "Ise"],
-    "Enugu": ["Enugu", "Nsukka", "Agbani", "Udi", "Oji-River", "Awgu", "Enugu Ezike"],
-    "FCT": ["Abuja", "Gwagwalada", "Kuje", "Bwari", "Kwali", "Abaji", "Karu"],
-    "Gombe": ["Gombe", "Kaltungo", "Bajoga", "Dukku", "Nafada", "Billiri", "Akko"],
-    "Imo": ["Owerri", "Orlu", "Okigwe", "Mgbidi", "Oguta", "Mbaise", "Ohaji"],
-    "Jigawa": ["Dutse", "Hadejia", "Gumel", "Kazaure", "Ringim", "Birnin Kudu", "Babura"],
-    "Kaduna": ["Kaduna", "Zaria", "Kafanchan", "Saminaka", "Makarf", "Birnin Gwari", "Jema'a"],
-    "Kano": ["Kano", "Wudil", "Gaya", "Dawakin Kudu", "Bichi", "Rano", "Kura"],
-    "Katsina": ["Katsina", "Funtua", "Daura", "Malumfashi", "Kankia", "Dutsinma", "Musawa"],
-    "Kebbi": ["Birnin Kebbi", "Argungu", "Yelwa", "Zuru", "Gwandu", "Jega", "Bagudo"],
-    "Kogi": ["Lokoja", "Okene", "Idah", "Kabba", "Ankpa", "Dekina", "Ajaokuta"],
-    "Kwara": ["Ilorin", "Offa", "Omu-Aran", "Patigi", "Lafiagi", "Jebba", "Kaiama"],
-    "Lagos": ["Lagos", "Ikeja", "Badagry", "Epe", "Ikorodu", "Ojo", "Alimosho"],
-    "Nasarawa": ["Lafia", "Keffi", "Akwanga", "Nasarawa", "Karu", "Doma", "Toto"],
-    "Niger": ["Minna", "Suleja", "Bida", "Kontagora", "Lapai", "Agaie", "Mokwa"],
-    "Ogun": ["Abeokuta", "Sagamu", "Ijebu-Ode", "Ilaro", "Aiyetoro", "Ado-Odo", "OttaIjebu"],
-    "Ondo": ["Akure", "Ondo", "Owo", "Okitipupa", "Ore", "Oka", "Ifon"],
-    "Osun": ["Osogbo", "Ife", "Ilesa", "Iwo", "Ede", "Ikirun", "Ejigbo"],
-    "Oyo": ["Ibadan", "Ogbomosho", "Oyo", "Iseyin", "Saki", "Okeho", "Igbo-Ora"],
-    "Plateau": ["Jos", "Bukuru", "Pankshin", "Shendam", "Langtang", "Barkin Ladi", "Mangu"],
-    "Rivers": ["Port Harcourt", "Bonny", "Degema", "Okrika", "Oyigbo", "Ahoada", "Bori"],
-    "Sokoto": ["Sokoto", "Tambuwal", "Wurno", "Gwadabawa", "Illela", "Binji", "Goronyo"],
-    "Taraba": ["Jalingo", "Bali", "Takum", "Wukari", "Serti", "Mutum Biyu", "Ibi"],
-    "Yobe": ["Damaturu", "Potiskum", "Gashua", "Geidam", "Nguru", "Bade", "Fika"],
-    "Zamfara": ["Gusau", "Kaura Namoda", "Talata Mafara", "Anka", "Bukkuyum", "Maru", "Bungudu"]
+    "Abia": ["Aba", "Umuahia", "Arochukwu", "Ohafia", "Bende", "Isuikwuato", "Abiriba"],
+    "Adamawa": ["Yola", "Mubi", "Jimeta", "Ganye", "Numan", "Mayo-Belwa", "Michika", "Gombi"],
+    "Akwa Ibom": ["Uyo", "Eket", "Ikot Ekpene", "Oron", "Ikot Abasi", "Abak", "Etinan", "Essien Udim"],
+    "Anambra": ["Awka", "Onitsha", "Nnewi", "Aguata", "Ogidi", "Ekwulobia", "Ozubulu", "Oba"],
+    "Bauchi": ["Bauchi", "Azare", "Jama'are", "Katagum", "Misau", "Ningi", "Darazo", "Gamawa"],
+    "Bayelsa": ["Yenagoa", "Brass", "Ogbia", "Sagbama", "Ekeremor", "Nembe", "Amassoma", "Odi"],
+    "Benue": ["Makurdi", "Gboko", "Otukpo", "Katsina-Ala", "Vandeikya", "Adikpo", "Aliade", "Oju"],
+    "Borno": ["Maiduguri", "Bama", "Dikwa", "Gwoza", "Monguno", "Biu", "Konduga", "Damboa"],
+    "Cross River": ["Calabar", "Ugep", "Ogoja", "Obudu", "Ikom", "Akamkpa", "Obubra", "Odukpani"],
+    "Delta": ["Asaba", "Warri", "Sapele", "Ughelli", "Burutu", "Agbor", "Ozoro", "Kwale"],
+    "Ebonyi": ["Abakaliki", "Afikpo", "Onueke", "Edda", "Ishielu", "Ezza", "Ikwo", "Ohaozara"],
+    "Edo": ["Benin City", "Auchi", "Ekpoma", "Igueben", "Uromi", "Irrua", "Oredo", "Ubiaja"],
+    "Ekiti": ["Ado-Ekiti", "Ikere", "Ijun-Ekiti", "Oye", "Ikole", "Efon", "Ise", "Emure"],
+    "Enugu": ["Enugu", "Nsukka", "Agbani", "Udi", "Oji-River", "Awgu", "Enugu Ezike", "Ezeagu"],
+    "FCT": ["Abuja", "Gwagwalada", "Kuje", "Bwari", "Kwali", "Abaji", "Karu", "Kubwa"],
+    "Gombe": ["Gombe", "Kaltungo", "Bajoga", "Dukku", "Nafada", "Billiri", "Akko", "Yamaltu"],
+    "Imo": ["Owerri", "Orlu", "Okigwe", "Mgbidi", "Oguta", "Mbaise", "Ohaji", "Orodo"],
+    "Jigawa": ["Dutse", "Hadejia", "Gumel", "Kazaure", "Ringim", "Birnin Kudu", "Babura", "Garki"],
+    "Kaduna": ["Kaduna", "Zaria", "Kafanchan", "Saminaka", "Makarf", "Birnin Gwari", "Jema'a", "Ikara"],
+    "Kano": ["Kano", "Wudil", "Gaya", "Dawakin Kudu", "Bichi", "Rano", "Kura", "Karaye"],
+    "Katsina": ["Katsina", "Funtua", "Daura", "Malumfashi", "Kankia", "Dutsinma", "Musawa", "Mani"],
+    "Kebbi": ["Birnin Kebbi", "Argungu", "Yelwa", "Zuru", "Gwandu", "Jega", "Bagudo", "Koko"],
+    "Kogi": ["Lokoja", "Okene", "Idah", "Kabba", "Ankpa", "Dekina", "Ajaokuta", "Ogaminana"],
+    "Kwara": ["Ilorin", "Offa", "Omu-Aran", "Patigi", "Lafiagi", "Jebba", "Kaiama", "Oke-Ode"],
+    "Lagos": ["Lagos Island", "Ikeja", "Badagry", "Epe", "Ikorodu", "Ojo", "Alimosho", "Mushin"],
+    "Nasarawa": ["Lafia", "Keffi", "Akwanga", "Nasarawa", "Karu", "Doma", "Toto", "Wamba"],
+    "Niger": ["Minna", "Suleja", "Bida", "Kontagora", "Lapai", "Agaie", "Mokwa", "Wushishi"],
+    "Ogun": ["Abeokuta", "Sagamu", "Ijebu-Ode", "Ilaro", "Aiyetoro", "Ado-Odo", "Otta", "Ijebu-Igbo"],
+    "Ondo": ["Akure", "Ondo City", "Owo", "Okitipupa", "Ore", "Oka", "Ifon", "Idanre"],
+    "Osun": ["Osogbo", "Ile-Ife", "Ilesa", "Iwo", "Ede", "Ikirun", "Ejigbo", "Iragbiji"],
+    "Oyo": ["Ibadan", "Ogbomosho", "Oyo", "Iseyin", "Saki", "Okeho", "Igbo-Ora", "Kishi"],
+    "Plateau": ["Jos", "Bukuru", "Pankshin", "Shendam", "Langtang", "Barkin Ladi", "Mangu", "Wase"],
+    "Rivers": ["Port Harcourt", "Bonny", "Degema", "Okrika", "Oyigbo", "Ahoada", "Bori", "Omoku"],
+    "Sokoto": ["Sokoto", "Tambuwal", "Wurno", "Gwadabawa", "Illela", "Binji", "Goronyo", "Isa"],
+    "Taraba": ["Jalingo", "Bali", "Takum", "Wukari", "Serti", "Mutum Biyu", "Ibi", "Lau"],
+    "Yobe": ["Damaturu", "Potiskum", "Gashua", "Geidam", "Nguru", "Bade", "Fika", "Gujba"],
+    "Zamfara": ["Gusau", "Kaura Namoda", "Talata Mafara", "Anka", "Bukkuyum", "Maru", "Bungudu", "Tsafe"]
 }
 
-# Travel policies (updated with full details)
+# UPDATED: Local Travel Policy with new rates
 LOCAL_POLICY = {
-    "GM & ABOVE": {"hotel": "Receipt required", "feeding": "Receipt required"},
-    "AGM-DGM": {"hotel": 100000, "feeding": 20000},
-    "SM-PM": {"hotel": 70000, "feeding": 20000},
-    "MGR": {"hotel": 50000, "feeding": 10000},
-    "AM-DM": {"hotel": 45000, "feeding": 7000},
-    "EA-SO": {"hotel": 40000, "feeding": 5000}
+    "GM & ABOVE": {"hotel": 250000, "feeding": 200000, "hotel_text": "N250,000/Night", "feeding_text": "N200,000 per Meal/Day"},
+    "AGM-DGM": {"hotel": 100000, "feeding": 40000, "hotel_text": "N100,000/night", "feeding_text": "N40,000 per Meal/Day"},
+    "SM-PM": {"hotel": 70000, "feeding": 40000, "hotel_text": "N70,000/Night", "feeding_text": "N40,000 per Meal/Day"},
+    "MGR": {"hotel": 50000, "feeding": 20000, "hotel_text": "N50,000/Night", "feeding_text": "N20,000 per Meal/Day"},
+    "AM-DM": {"hotel": 45000, "feeding": 14000, "hotel_text": "N45,000/Night", "feeding_text": "N14,000 per Meal/Day"},
+    "EA-SO": {"hotel": 40000, "feeding": 10000, "hotel_text": "N40,000/Night", "feeding_text": "N10,000 per Meal/Day"}
 }
+
+# UPDATED: International Travel Policy with new rates and exchange rate
+USD_TO_NGN = 1400  # Exchange rate: USD 1 = NGN 1,400
 
 INTERNATIONAL_POLICY = {
-    "GM & ABOVE": {"in_lieu": 700, "out_of_station": 50, "airport_taxi": 100, "total": 850},
-    "AGM-DGM": {"in_lieu": 550, "out_of_station": 50, "airport_taxi": 100, "total": 700},
-    "SM-PM": {"in_lieu": 475, "out_of_station": 50, "airport_taxi": 100, "total": 625},
-    "MGR": {"in_lieu": 375, "out_of_station": 50, "airport_taxi": 100, "total": 525},
-    "AM-DM": {"in_lieu": 325, "out_of_station": 50, "airport_taxi": 100, "total": 475},
-    "EA-SO": {"in_lieu": 275, "out_of_station": 50, "airport_taxi": 100, "total": 425}
+    "MD": {
+        "accommodation": 500,
+        "feeding": 200,
+        "out_of_station": 200,
+        "airport_taxi": 250,
+        "total_usd": 1150,  # 500 + 200 + 200 + 250
+        "total_ngn": 1150 * USD_TO_NGN,
+        "accommodation_text": "$500 Per/Night",
+        "feeding_text": "$200/Day",
+        "out_of_station_text": "$200/Day",
+        "airport_taxi_text": "$250"
+    },
+    "ED": {
+        "accommodation": 200,
+        "feeding": 150,
+        "out_of_station": 150,
+        "airport_taxi": 200,
+        "total_usd": 700,  # 200 + 150 + 150 + 200
+        "total_ngn": 700 * USD_TO_NGN,
+        "accommodation_text": "$200/Night",
+        "feeding_text": "$150/Day",
+        "out_of_station_text": "$150/Day",
+        "airport_taxi_text": "$200"
+    },
+    "AGM-GM": {
+        "accommodation": 150,
+        "feeding": 100,
+        "out_of_station": 100,
+        "airport_taxi": 150,
+        "total_usd": 500,  # 150 + 100 + 100 + 150
+        "total_ngn": 500 * USD_TO_NGN,
+        "accommodation_text": "$150/Night",
+        "feeding_text": "$100/Day",
+        "out_of_station_text": "$100/Day",
+        "airport_taxi_text": "$150"
+    },
+    "AM-PM": {
+        "accommodation": 100,
+        "feeding": 80,
+        "out_of_station": 80,
+        "airport_taxi": 100,
+        "total_usd": 360,  # 100 + 80 + 80 + 100
+        "total_ngn": 360 * USD_TO_NGN,
+        "accommodation_text": "$100/Night",
+        "feeding_text": "$80/day",
+        "out_of_station_text": "$80/Day",
+        "airport_taxi_text": "$100"
+    },
+    "EA-SO": {
+        "accommodation": 100,
+        "feeding": 50,
+        "out_of_station": 60,
+        "airport_taxi": 100,
+        "total_usd": 310,  # 100 + 50 + 60 + 100
+        "total_ngn": 310 * USD_TO_NGN,
+        "accommodation_text": "$100/Night",
+        "feeding_text": "$50/Day",
+        "out_of_station_text": "$60/Day",
+        "airport_taxi_text": "$100"
+    }
 }
 
 # Budget configuration
@@ -365,7 +424,12 @@ class PDFReport(FPDF):
         self.cell(40, 8, f'{label}:', 0, 0)
         self.set_font('Arial', '', 10)
         self.set_text_color(33, 33, 33)
-        self.multi_cell(0, 8, str(value), 0, 1)
+        # Convert value to string and handle any encoding issues
+        if isinstance(value, bytes):
+            value = value.decode('utf-8', errors='ignore')
+        else:
+            value = str(value)
+        self.multi_cell(0, 8, value, 0, 1)
 
 # Database initialization with enhanced schema
 def init_db():
@@ -468,7 +532,7 @@ def init_db():
                   status TEXT DEFAULT 'completed',
                   FOREIGN KEY (cost_id) REFERENCES travel_costs(id))''')
     
-    # Create default users if they don't exist - FIXED: Added Head of Administration
+    # Create default users if they don't exist
     default_users = [
         ("CFO/Executive Director", "cfo_ed", "cfo@prudentialzenith.com", 
          make_hashes("0123456"), "Finance and Investment", "ED", "CFO/ED"),
@@ -566,36 +630,46 @@ def get_payment_approval_flow(total_amount):
         return ["Head of Administration", "Chief Compliance Officer", "Chief Risk Officer", "ED"]
 
 def get_grade_category(grade):
-    """Map grade to policy category"""
-    if grade in ["MD", "ED", "GM"]:
-        return "GM & ABOVE"
-    elif grade in ["DGM", "AGM"]:
-        return "AGM-DGM"
-    elif grade in ["PM", "SM"]:
-        return "SM-PM"
-    elif grade == "MGR":
-        return "MGR"
-    elif grade in ["AM", "DM"]:
-        return "AM-DM"
+    """Map grade to policy category - UPDATED for international policy"""
+    if grade == "MD":
+        return "MD"
+    elif grade == "ED":
+        return "ED"
+    elif grade in ["AGM", "GM", "DGM"]:
+        return "AGM-GM"
+    elif grade in ["PM", "SM", "AM"]:
+        return "AM-PM"
     else:
         return "EA-SO"
 
 def calculate_travel_costs(grade, travel_type, duration_nights):
-    """Calculate travel costs based on policy"""
-    grade_category = get_grade_category(grade)
-    
+    """Calculate travel costs based on policy - UPDATED with new rates"""
     if travel_type == "local":
-        policy = LOCAL_POLICY[grade_category]
-        if isinstance(policy["hotel"], int):
-            hotel_cost = policy["hotel"] * duration_nights
-            feeding_cost = policy["feeding"] * 3 * duration_nights
-            total = hotel_cost + feeding_cost
+        grade_category = get_grade_category(grade)
+        # For local travel, we need to map grades to the LOCAL_POLICY categories
+        if grade in ["MD", "ED", "GM"]:
+            policy_category = "GM & ABOVE"
+        elif grade in ["DGM", "AGM"]:
+            policy_category = "AGM-DGM"
+        elif grade in ["PM", "SM"]:
+            policy_category = "SM-PM"
+        elif grade == "MGR":
+            policy_category = "MGR"
+        elif grade in ["AM", "DM"]:
+            policy_category = "AM-DM"
         else:
-            total = 0  # Receipt required
+            policy_category = "EA-SO"
+        
+        policy = LOCAL_POLICY[policy_category]
+        hotel_cost = policy["hotel"] * duration_nights
+        feeding_cost = policy["feeding"] * 3 * duration_nights  # 3 meals per day
+        total = hotel_cost + feeding_cost
         return total
     else:
+        # International travel
+        grade_category = get_grade_category(grade)
         policy = INTERNATIONAL_POLICY[grade_category]
-        return policy["total"] * duration_nights
+        return policy["total_ngn"] * duration_nights
 
 def get_current_budget():
     """Get current budget information"""
@@ -607,93 +681,125 @@ def get_current_budget():
     return budget
 
 def update_budget(amount):
-    """Update budget after payment"""
-    conn = sqlite3.connect('travel_app.db')
-    c = conn.cursor()
-    current_year = datetime.datetime.now().year
-    c.execute('''UPDATE budget 
-                 SET utilized_budget = utilized_budget + ?, 
-                     balance = balance - ? 
-                 WHERE year = ?''', 
-             (amount, amount, current_year))
-    conn.commit()
-    conn.close()
+    """Update budget after payment - FIXED: Added error handling"""
+    conn = None
+    try:
+        conn = sqlite3.connect('travel_app.db')
+        c = conn.cursor()
+        current_year = datetime.datetime.now().year
+        
+        # First check if budget record exists
+        c.execute("SELECT * FROM budget WHERE year = ?", (current_year,))
+        budget = c.fetchone()
+        
+        if budget:
+            c.execute('''UPDATE budget 
+                         SET utilized_budget = utilized_budget + ?, 
+                             balance = balance - ?,
+                             last_updated = CURRENT_TIMESTAMP
+                         WHERE year = ?''', 
+                     (amount, amount, current_year))
+        else:
+            # Create budget record if it doesn't exist
+            c.execute('''INSERT INTO budget (year, total_budget, utilized_budget, balance)
+                         VALUES (?, ?, ?, ?)''',
+                     (current_year, ANNUAL_BUDGET, amount, ANNUAL_BUDGET - amount))
+        
+        conn.commit()
+    except Exception as e:
+        st.error(f"Error updating budget: {str(e)}")
+    finally:
+        if conn:
+            conn.close()
 
 def generate_pdf_report(request_id):
-    """Generate PDF report for travel request"""
-    conn = sqlite3.connect('travel_app.db')
-    
-    # Get request details
-    request_query = """
-        SELECT tr.*, u.full_name, u.department, u.grade, u.email,
-               u.bank_name, u.account_number, u.account_name
-        FROM travel_requests tr
-        JOIN users u ON tr.user_id = u.id
-        WHERE tr.id = ?
-    """
-    request_data = pd.read_sql(request_query, conn, params=(request_id,)).iloc[0]
-    
-    # Get cost details
-    cost_query = """
-        SELECT * FROM travel_costs WHERE request_id = ?
-    """
-    cost_data = pd.read_sql(cost_query, conn, params=(request_id,))
-    
-    # Get approval history
-    approval_query = """
-        SELECT * FROM approvals WHERE request_id = ? ORDER BY approved_at
-    """
-    approvals = pd.read_sql(approval_query, conn, params=(request_id,))
-    
-    conn.close()
-    
-    # Create PDF
-    pdf = PDFReport()
-    pdf.add_page()
-    
-    # Add request details
-    pdf.add_section_title("Travel Request Details")
-    pdf.add_field("Request ID", f"TR-{request_id:06d}")
-    pdf.add_field("Employee", request_data['full_name'])
-    pdf.add_field("Department", request_data['department'])
-    pdf.add_field("Grade", request_data['grade'])
-    pdf.add_field("Travel Type", request_data['travel_type'].title())
-    pdf.add_field("Destination", request_data['destination'])
-    pdf.add_field("Purpose", request_data['purpose'])
-    pdf.add_field("Mode of Travel", request_data['mode_of_travel'])
-    pdf.add_field("Departure Date", request_data['departure_date'])
-    pdf.add_field("Arrival Date", request_data['arrival_date'])
-    pdf.add_field("Duration", f"{request_data['duration_days']} days ({request_data['duration_nights']} nights)")
-    pdf.add_field("Accommodation", request_data['accommodation_needed'])
-    pdf.add_field("Status", request_data['status'].upper())
-    
-    # Add cost details if available
-    if not cost_data.empty:
-        pdf.add_section_title("Cost Details")
-        cost = cost_data.iloc[0]
-        pdf.add_field("Per Diem Amount", f"₦{cost['per_diem_amount']:,.2f}")
-        pdf.add_field("Flight Cost", f"₦{cost['flight_cost']:,.2f}")
-        pdf.add_field("Total Cost", f"₦{cost['total_cost']:,.2f}")
-        pdf.add_field("Payment Status", cost['payment_status'].upper())
-        pdf.add_field("Budgeted Cost", f"₦{cost['budgeted_cost']:,.2f}" if cost['budgeted_cost'] else "N/A")
-        pdf.add_field("Budget Balance", f"₦{cost['budget_balance']:,.2f}" if cost['budget_balance'] else "N/A")
-    
-    # Add approval history
-    if not approvals.empty:
-        pdf.add_section_title("Approval History")
-        for _, approval in approvals.iterrows():
-            pdf.add_field(f"{approval['approver_role']}", 
-                         f"{approval['status'].upper()} - {approval['approved_at']}")
-    
-    # Add employee bank details
-    pdf.add_section_title("Employee Bank Details")
-    pdf.add_field("Bank Name", request_data['bank_name'] or "Not Provided")
-    pdf.add_field("Account Number", request_data['account_number'] or "Not Provided")
-    pdf.add_field("Account Name", request_data['account_name'] or "Not Provided")
-    
-    # Generate PDF in memory
-    pdf_bytes = pdf.output(dest='S').encode('latin-1')
-    return pdf_bytes
+    """Generate PDF report for travel request - FIXED: Encoding issue"""
+    conn = None
+    try:
+        conn = sqlite3.connect('travel_app.db')
+        
+        # Get request details
+        request_query = """
+            SELECT tr.*, u.full_name, u.department, u.grade, u.email,
+                   u.bank_name, u.account_number, u.account_name
+            FROM travel_requests tr
+            JOIN users u ON tr.user_id = u.id
+            WHERE tr.id = ?
+        """
+        request_data = pd.read_sql(request_query, conn, params=(request_id,)).iloc[0]
+        
+        # Get cost details
+        cost_query = """
+            SELECT * FROM travel_costs WHERE request_id = ?
+        """
+        cost_data = pd.read_sql(cost_query, conn, params=(request_id,))
+        
+        # Get approval history
+        approval_query = """
+            SELECT * FROM approvals WHERE request_id = ? ORDER BY approved_at
+        """
+        approvals = pd.read_sql(approval_query, conn, params=(request_id,))
+        
+        # Create PDF
+        pdf = PDFReport()
+        pdf.add_page()
+        pdf.set_auto_page_break(auto=True, margin=15)
+        
+        # Add request details
+        pdf.add_section_title("Travel Request Details")
+        pdf.add_field("Request ID", f"TR-{request_id:06d}")
+        pdf.add_field("Employee", request_data['full_name'])
+        pdf.add_field("Department", request_data['department'])
+        pdf.add_field("Grade", request_data['grade'])
+        pdf.add_field("Travel Type", request_data['travel_type'].title())
+        pdf.add_field("Destination", request_data['destination'])
+        pdf.add_field("Purpose", request_data['purpose'])
+        pdf.add_field("Mode of Travel", request_data['mode_of_travel'])
+        pdf.add_field("Departure Date", request_data['departure_date'])
+        pdf.add_field("Arrival Date", request_data['arrival_date'])
+        pdf.add_field("Duration", f"{request_data['duration_days']} days ({request_data['duration_nights']} nights)")
+        pdf.add_field("Accommodation", request_data['accommodation_needed'])
+        pdf.add_field("Status", request_data['status'].upper())
+        
+        # Add cost details if available
+        if not cost_data.empty:
+            pdf.add_section_title("Cost Details")
+            cost = cost_data.iloc[0]
+            pdf.add_field("Per Diem Amount", f"₦{cost['per_diem_amount']:,.2f}")
+            pdf.add_field("Flight Cost", f"₦{cost['flight_cost']:,.2f}")
+            pdf.add_field("Total Cost", f"₦{cost['total_cost']:,.2f}")
+            pdf.add_field("Payment Status", cost['payment_status'].upper())
+            pdf.add_field("Budgeted Cost", f"₦{cost['budgeted_cost']:,.2f}" if cost['budgeted_cost'] else "N/A")
+            pdf.add_field("Budget Balance", f"₦{cost['budget_balance']:,.2f}" if cost['budget_balance'] else "N/A")
+        
+        # Add approval history
+        if not approvals.empty:
+            pdf.add_section_title("Approval History")
+            for _, approval in approvals.iterrows():
+                pdf.add_field(f"{approval['approver_role']}", 
+                             f"{approval['status'].upper()} - {approval['approved_at']}")
+        
+        # Add employee bank details
+        pdf.add_section_title("Employee Bank Details")
+        pdf.add_field("Bank Name", request_data['bank_name'] or "Not Provided")
+        pdf.add_field("Account Number", request_data['account_number'] or "Not Provided")
+        pdf.add_field("Account Name", request_data['account_name'] or "Not Provided")
+        
+        # Generate PDF as string and encode properly
+        pdf_str = pdf.output(dest='S')
+        # Convert to bytes with proper encoding, handling any Unicode characters
+        if isinstance(pdf_str, str):
+            pdf_bytes = pdf_str.encode('latin-1', errors='replace')
+        else:
+            pdf_bytes = pdf_str
+        
+        return pdf_bytes
+    except Exception as e:
+        st.error(f"Error generating PDF: {str(e)}")
+        return None
+    finally:
+        if conn:
+            conn.close()
 
 def get_pending_approvals_for_role(role):
     """Get all pending approvals for a specific role"""
@@ -724,7 +830,7 @@ def get_pending_approvals_for_role(role):
     return approvals
 
 def process_approval(request_id, action, comments=""):
-    """Process approval or rejection of a travel request - FIXED: Correct approval flow"""
+    """Process approval or rejection of a travel request"""
     conn = sqlite3.connect('travel_app.db')
     c = conn.cursor()
     
@@ -736,7 +842,7 @@ def process_approval(request_id, action, comments=""):
         conn.close()
         return False, "Request not found"
     
-    # Get column indices for clarity
+    # Get column indices
     # Based on table structure: id, user_id, username, travel_type, destination, city, purpose,
     # mode_of_travel, departure_date, arrival_date, accommodation_needed, duration_days,
     # duration_nights, status, current_approver, approval_flow, created_at
@@ -840,7 +946,7 @@ def login():
         with col_b:
             register_btn = st.button("**CREATE ACCOUNT**", use_container_width=True)
         
-        # Quick login info - FIXED: Added Head of Admin credentials
+        # Quick login info
         st.markdown('<div class="quick-login">', unsafe_allow_html=True)
         st.markdown('<h4>🔑 Quick Login (Test Credentials)</h4>', unsafe_allow_html=True)
         st.markdown("""
@@ -960,7 +1066,7 @@ def registration_form():
                     st.rerun()
 
 def profile_update():
-    """Profile update form"""
+    """User profile update form"""
     st.markdown('<h1 class="sub-header">Update Profile</h1>', unsafe_allow_html=True)
     
     conn = sqlite3.connect('travel_app.db')
@@ -972,7 +1078,6 @@ def profile_update():
         
         with col1:
             full_name = st.text_input("Full Name*", value=user_data['full_name'])
-            username = st.text_input("Username (Employee ID)*", value=user_data['username'], disabled=True)
             email = st.text_input("Email Address*", value=user_data['email'])
             phone_number = st.text_input("Phone Number", value=user_data['phone_number'] or "")
         
@@ -1019,7 +1124,7 @@ def profile_update():
                 st.rerun()
 
 def dashboard():
-    """Main dashboard"""
+    """Main dashboard with navigation"""
     with st.sidebar:
         st.markdown("""
         <div style="text-align: center; padding: 15px; background: linear-gradient(135deg, #D32F2F 0%, #B71C1C 100%); border-radius: 10px; margin-bottom: 20px;">
@@ -1103,31 +1208,34 @@ def dashboard():
         
         # Budget info for admin
         if st.session_state.role in ["Head of Administration", "admin"]:
-            budget = get_current_budget()
-            utilization = (budget['utilized_budget'] / budget['total_budget']) * 100
-            
-            st.markdown(f"""
-            <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); 
-                        padding: 15px; border-radius: 10px; margin-top: 20px; border-left: 4px solid #D32F2F;">
-                <h5 style="color: #424242; margin-bottom: 10px;">💰 Budget Overview</h5>
-                <p style="color: #616161; margin: 5px 0; font-size: 0.9rem;">
-                    <strong>Total:</strong> ₦{budget['total_budget']:,.0f}
-                </p>
-                <p style="color: #616161; margin: 5px 0; font-size: 0.9rem;">
-                    <strong>Utilized:</strong> ₦{budget['utilized_budget']:,.0f}
-                </p>
-                <p style="color: #616161; margin: 5px 0; font-size: 0.9rem;">
-                    <strong>Balance:</strong> ₦{budget['balance']:,.0f}
-                </p>
-                <div style="background: #e0e0e0; height: 8px; border-radius: 4px; margin-top: 10px;">
-                    <div style="background: {'#4CAF50' if utilization < 80 else '#F44336'}; 
-                                width: {min(utilization, 100)}%; height: 100%; border-radius: 4px;"></div>
+            try:
+                budget = get_current_budget()
+                utilization = (budget['utilized_budget'] / budget['total_budget']) * 100
+                
+                st.markdown(f"""
+                <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); 
+                            padding: 15px; border-radius: 10px; margin-top: 20px; border-left: 4px solid #D32F2F;">
+                    <h5 style="color: #424242; margin-bottom: 10px;">💰 Budget Overview</h5>
+                    <p style="color: #616161; margin: 5px 0; font-size: 0.9rem;">
+                        <strong>Total:</strong> ₦{budget['total_budget']:,.0f}
+                    </p>
+                    <p style="color: #616161; margin: 5px 0; font-size: 0.9rem;">
+                        <strong>Utilized:</strong> ₦{budget['utilized_budget']:,.0f}
+                    </p>
+                    <p style="color: #616161; margin: 5px 0; font-size: 0.9rem;">
+                        <strong>Balance:</strong> ₦{budget['balance']:,.0f}
+                    </p>
+                    <div style="background: #e0e0e0; height: 8px; border-radius: 4px; margin-top: 10px;">
+                        <div style="background: {'#4CAF50' if utilization < 80 else '#F44336'}; 
+                                    width: {min(utilization, 100)}%; height: 100%; border-radius: 4px;"></div>
+                    </div>
+                    <p style="color: #616161; margin-top: 5px; font-size: 0.8rem; text-align: center;">
+                        {utilization:.1f}% utilized
+                    </p>
                 </div>
-                <p style="color: #616161; margin-top: 5px; font-size: 0.8rem; text-align: center;">
-                    {utilization:.1f}% utilized
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
+                """, unsafe_allow_html=True)
+            except:
+                st.info("Budget data not available")
         
         st.markdown("---")
         if st.button("🚪 Logout", use_container_width=True, type="primary"):
@@ -1267,29 +1375,32 @@ def show_dashboard():
         st.markdown("---")
         st.markdown("### Budget Overview")
         
-        budget = get_current_budget()
-        col5, col6, col7 = st.columns(3)
-        
-        with col5:
-            st.metric("Total Budget", f"₦{budget['total_budget']:,.0f}")
-        with col6:
-            st.metric("Utilized", f"₦{budget['utilized_budget']:,.0f}")
-        with col7:
-            st.metric("Balance", f"₦{budget['balance']:,.0f}")
-        
-        # Progress bar
-        utilization = (budget['utilized_budget'] / budget['total_budget']) * 100
-        st.markdown(f"""
-        <div style="margin-top: 20px;">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                <span style="color: #616161;">Budget Utilization</span>
-                <span style="color: #616161; font-weight: bold;">{utilization:.1f}%</span>
+        try:
+            budget = get_current_budget()
+            col5, col6, col7 = st.columns(3)
+            
+            with col5:
+                st.metric("Total Budget", f"₦{budget['total_budget']:,.0f}")
+            with col6:
+                st.metric("Utilized", f"₦{budget['utilized_budget']:,.0f}")
+            with col7:
+                st.metric("Balance", f"₦{budget['balance']:,.0f}")
+            
+            # Progress bar
+            utilization = (budget['utilized_budget'] / budget['total_budget']) * 100
+            st.markdown(f"""
+            <div style="margin-top: 20px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                    <span style="color: #616161;">Budget Utilization</span>
+                    <span style="color: #616161; font-weight: bold;">{utilization:.1f}%</span>
+                </div>
+                <div class="budget-bar{' budget-bar-over' if utilization > 100 else ''}" 
+                     style="width: {min(utilization, 100)}%; height: 25px;">
+                </div>
             </div>
-            <div class="budget-bar{' budget-bar-over' if utilization > 100 else ''}" 
-                 style="width: {min(utilization, 100)}%;">
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
+        except:
+            st.info("Budget data not available")
     
     conn.close()
 
@@ -1339,17 +1450,17 @@ def travel_request_form():
             if travel_type == "Local":
                 # FIXED: Use session state to track selected state
                 state = st.selectbox("State*", list(NIGERIAN_STATES.keys()), 
-                                    key="travel_state")
+                                    key="travel_state", index=0)
                 
-                # Get cities for selected state
+                # Get cities for selected state - FIXED: Properly update cities
                 cities = NIGERIAN_STATES.get(state, [])
                 
-                # FIXED: City selection based on selected state
+                # City selection based on selected state
                 if cities:
                     city = st.selectbox("City*", cities, key="travel_city")
                 else:
                     city = st.text_input("City*")
-                    st.warning("No cities found for selected state")
+                    st.warning("Please enter city manually")
                 
                 destination = f"{city}, {state}"
             else:
@@ -1357,16 +1468,15 @@ def travel_request_form():
                 city = st.text_input("City/Region*")
                 destination = f"{city}, {country}"
             
-            purpose = st.selectbox("Purpose*", 
-                                  ["Business Meeting", "Conference", "Training", 
-                                   "Project Site Visit", "Other"])
+            purpose_options = ["Business Meeting", "Conference", "Training", "Project Site Visit", "Other"]
+            purpose = st.selectbox("Purpose*", purpose_options)
             
             if purpose == "Other":
                 purpose = st.text_input("Specify purpose")
         
         with col2:
-            mode_of_travel = st.selectbox("Mode of Travel*", 
-                                         ["Flight", "Road", "Train", "Water", "Other"])
+            mode_options = ["Flight", "Road", "Train", "Water", "Other"]
+            mode_of_travel = st.selectbox("Mode of Travel*", mode_options)
             
             departure_date = st.date_input("Departure Date*", min_value=date.today())
             arrival_date = st.date_input("Arrival Date*", min_value=departure_date)
@@ -1382,6 +1492,45 @@ def travel_request_form():
         else:
             duration_days = 0
             duration_nights = 0
+        
+        # Show policy information
+        if travel_type == "Local":
+            st.markdown("### Local Travel Policy Rates")
+            grade_category = get_grade_category(st.session_state.grade)
+            # Map grade to policy category for display
+            if st.session_state.grade in ["MD", "ED", "GM"]:
+                policy_category = "GM & ABOVE"
+            elif st.session_state.grade in ["DGM", "AGM"]:
+                policy_category = "AGM-DGM"
+            elif st.session_state.grade in ["PM", "SM"]:
+                policy_category = "SM-PM"
+            elif st.session_state.grade == "MGR":
+                policy_category = "MGR"
+            elif st.session_state.grade in ["AM", "DM"]:
+                policy_category = "AM-DM"
+            else:
+                policy_category = "EA-SO"
+            
+            policy = LOCAL_POLICY[policy_category]
+            col_a, col_b = st.columns(2)
+            with col_a:
+                st.info(f"**Hotel:** {policy['hotel_text']}")
+            with col_b:
+                st.info(f"**Feeding:** {policy['feeding_text']}")
+        else:
+            st.markdown("### International Travel Policy Rates (USD 1 = NGN 1,400)")
+            grade_category = get_grade_category(st.session_state.grade)
+            policy = INTERNATIONAL_POLICY[grade_category]
+            col_a, col_b, col_c, col_d = st.columns(4)
+            with col_a:
+                st.info(f"**Hotel:** {policy['accommodation_text']}")
+            with col_b:
+                st.info(f"**Feeding:** {policy['feeding_text']}")
+            with col_c:
+                st.info(f"**Out of Station:** {policy['out_of_station_text']}")
+            with col_d:
+                st.info(f"**Airport Taxi:** {policy['airport_taxi_text']}")
+            st.info(f"**Total per day:** ${policy['total_usd']} (₦{policy['total_ngn']:,.0f})")
         
         submitted = st.form_submit_button("Submit Request", type="primary")
         
@@ -1438,31 +1587,9 @@ def travel_request_form():
                 st.info(f"**Approval Flow:** {' → '.join(approval_flow)}")
                 
                 # Calculate estimated costs
-                grade_category = get_grade_category(st.session_state.grade)
-                
-                if travel_type == "Local":
-                    policy = LOCAL_POLICY[grade_category]
-                    st.markdown("### Estimated Allowances (Local)")
-                    col_a, col_b = st.columns(2)
-                    with col_a:
-                        st.metric("Hotel Allowance", 
-                                 f"₦{policy['hotel']:,}/night" if isinstance(policy['hotel'], int) else policy['hotel'])
-                    with col_b:
-                        st.metric("Feeding Allowance",
-                                 f"₦{policy['feeding']:,}/meal" if isinstance(policy['feeding'], int) else policy['feeding'])
-                else:
-                    policy = INTERNATIONAL_POLICY[grade_category]
-                    st.markdown("### Estimated Allowances (International)")
-                    col_a, col_b, col_c, col_d = st.columns(4)
-                    with col_a:
-                        st.metric("In-lieu", f"${policy['in_lieu']}")
-                    with col_b:
-                        st.metric("Out of Station", f"${policy['out_of_station']}")
-                    with col_c:
-                        st.metric("Airport Taxi", f"${policy['airport_taxi']}")
-                    with col_d:
-                        st.metric("Total per day", f"${policy['total']}")
-                    st.metric("Total Estimated Cost", f"${policy['total'] * duration_nights:,}")
+                estimated_total = calculate_travel_costs(st.session_state.grade, travel_type.lower(), duration_nights)
+                if estimated_total > 0:
+                    st.metric("Estimated Total Cost", f"₦{estimated_total:,.2f}")
 
 def travel_history():
     """Travel history page"""
@@ -1548,15 +1675,18 @@ def travel_history():
                         st.markdown(f"**Total Cost:** ₦{row['total_cost']:,.2f}")
                 
                 # Download PDF button
-                if st.button(f"📄 Download Report", key=f"pdf_{row['id']}"):
-                    pdf_bytes = generate_pdf_report(row['id'])
-                    st.download_button(
-                        label="Click to Download PDF",
-                        data=pdf_bytes,
-                        file_name=f"travel_report_{row['id']}.pdf",
-                        mime="application/pdf",
-                        key=f"download_{row['id']}"
-                    )
+                col_d, col_e = st.columns(2)
+                with col_d:
+                    if st.button(f"📄 Download Report", key=f"pdf_{row['id']}"):
+                        pdf_bytes = generate_pdf_report(row['id'])
+                        if pdf_bytes:
+                            st.download_button(
+                                label="Click to Download PDF",
+                                data=pdf_bytes,
+                                file_name=f"travel_report_{row['id']}.pdf",
+                                mime="application/pdf",
+                                key=f"download_{row['id']}"
+                            )
                 
                 st.markdown("---")
     else:
@@ -1576,7 +1706,7 @@ def payment_status():
                tc.total_cost, tc.payment_status, tc.payment_completed,
                tc.payment_date, tc.payment_approved_by
         FROM travel_requests tr
-        JOIN travel_costs tc ON tr.id = tc.request_id
+        LEFT JOIN travel_costs tc ON tr.id = tc.request_id
         WHERE tr.user_id = ? AND tc.total_cost IS NOT NULL
         ORDER BY tr.created_at DESC
     """
@@ -1613,7 +1743,7 @@ def payment_status():
     conn.close()
 
 def show_approvals():
-    """Display pending approvals for the current user's role - FIXED: Proper approval display"""
+    """Display pending approvals for the current user's role"""
     if st.session_state.role not in ["MD", "ED", "CFO/ED", "Head of Department", "Head of Administration",
                                     "Chief Commercial Officer", "Chief Agency Officer",
                                     "Chief Compliance Officer", "Chief Risk Officer"]:
@@ -1729,7 +1859,7 @@ def admin_panel():
         JOIN users u ON tr.user_id = u.id 
         LEFT JOIN travel_costs tc ON tr.id = tc.request_id 
         WHERE tr.status = 'approved' 
-        AND (tc.id IS NULL OR tc.payment_status = 'pending' OR tc.payment_status = 'draft')
+        AND (tc.id IS NULL OR tc.payment_status IN ('pending', 'draft'))
         ORDER BY tr.created_at DESC
     """
     
@@ -1740,10 +1870,12 @@ def admin_panel():
             with st.expander(f"{row['full_name']} - {row['destination']} ({row['travel_type']})", expanded=False):
                 
                 # Get current budget
-                budget = get_current_budget()
+                try:
+                    budget = get_current_budget()
+                except:
+                    budget = {'balance': ANNUAL_BUDGET}
                 
                 # Calculate estimated costs
-                grade_category = get_grade_category(row['grade'])
                 estimated_cost = calculate_travel_costs(row['grade'], row['travel_type'], row['duration_nights'])
                 
                 # Cost input form
@@ -2011,7 +2143,7 @@ def final_approvals():
     payment_approvals()
 
 def payment_processing():
-    """Payment processing for Payables Officer"""
+    """Payment processing for Payables Officer - FIXED: Added error handling"""
     if st.session_state.role != "Payables Officer":
         st.warning("Access denied")
         return
@@ -2057,38 +2189,41 @@ def payment_processing():
                     payment_date = st.date_input("Payment Date", value=date.today())
                     
                     if st.form_submit_button("✅ Mark as Paid", type="primary"):
-                        c = conn.cursor()
-                        
-                        # Update payment status
-                        c.execute("""UPDATE travel_costs 
-                                   SET payment_status = 'paid', payment_completed = 1,
-                                       payment_date = ?
-                                   WHERE id = ?""",
-                                 (payment_date.strftime("%Y-%m-%d"), row['id']))
-                        
-                        # Record payment transaction
-                        c.execute("""INSERT INTO payments 
-                                   (cost_id, amount, payment_method, reference_number, paid_by, paid_date)
-                                   VALUES (?, ?, ?, ?, ?, ?)""",
-                                 (row['id'], row['total_cost'], payment_method, 
-                                  reference_number, st.session_state.full_name,
-                                  payment_date.strftime("%Y-%m-%d")))
-                        
-                        # Update budget
-                        update_budget(row['total_cost'])
-                        
-                        # Record approval
-                        c.execute("""INSERT INTO approvals 
-                                   (request_id, approver_role, approver_name, status, comments)
-                                   VALUES (?, ?, ?, ?, ?)""",
-                                 (row['request_id'], "Payables Officer", 
-                                  st.session_state.full_name, "completed",
-                                  f"Payment processed - ₦{row['total_cost']:,.2f}"))
-                        
-                        conn.commit()
-                        st.success("✅ Payment marked as completed!")
-                        time.sleep(2)
-                        st.rerun()
+                        try:
+                            c = conn.cursor()
+                            
+                            # Update payment status
+                            c.execute("""UPDATE travel_costs 
+                                       SET payment_status = 'paid', payment_completed = 1,
+                                           payment_date = ?
+                                       WHERE id = ?""",
+                                     (payment_date.strftime("%Y-%m-%d"), row['id']))
+                            
+                            # Record payment transaction
+                            c.execute("""INSERT INTO payments 
+                                       (cost_id, amount, payment_method, reference_number, paid_by, paid_date)
+                                       VALUES (?, ?, ?, ?, ?, ?)""",
+                                     (row['id'], row['total_cost'], payment_method, 
+                                      reference_number, st.session_state.full_name,
+                                      payment_date.strftime("%Y-%m-%d")))
+                            
+                            # Update budget
+                            update_budget(row['total_cost'])
+                            
+                            # Record approval
+                            c.execute("""INSERT INTO approvals 
+                                       (request_id, approver_role, approver_name, status, comments)
+                                       VALUES (?, ?, ?, ?, ?)""",
+                                     (row['request_id'], "Payables Officer", 
+                                      st.session_state.full_name, "completed",
+                                      f"Payment processed - ₦{row['total_cost']:,.2f}"))
+                            
+                            conn.commit()
+                            st.success("✅ Payment marked as completed!")
+                            time.sleep(2)
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error processing payment: {str(e)}")
     else:
         st.info("No payments pending processing")
     
@@ -2104,121 +2239,124 @@ def budget_analytics():
     
     conn = sqlite3.connect('travel_app.db')
     
-    # Get budget data
-    budget = get_current_budget()
-    
-    # Summary cards
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.markdown(f"""
-        <div class="metric-card">
-            <h3 style="color: #D32F2F;">₦{budget['total_budget']:,.0f}</h3>
-            <p style="color: #616161;">Total Budget</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown(f"""
-        <div class="metric-card">
-            <h3 style="color: #4CAF50;">₦{budget['utilized_budget']:,.0f}</h3>
-            <p style="color: #616161;">YTD Actual</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown(f"""
-        <div class="metric-card">
-            <h3 style="color: #2196F3;">₦{budget['balance']:,.0f}</h3>
-            <p style="color: #616161;">Budget Balance</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col4:
-        utilization = (budget['utilized_budget'] / budget['total_budget']) * 100
-        st.markdown(f"""
-        <div class="metric-card">
-            <h3 style="color: {'#4CAF50' if utilization < 80 else '#F44336'};">{utilization:.1f}%</h3>
-            <p style="color: #616161;">Utilization Rate</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    # Detailed analytics
-    col5, col6 = st.columns(2)
-    
-    with col5:
-        # Monthly expenditure
-        monthly_query = """
-            SELECT strftime('%Y-%m', tc.created_at) as month,
-                   SUM(tc.total_cost) as monthly_expense
-            FROM travel_costs tc
-            WHERE tc.payment_status = 'paid'
-            GROUP BY strftime('%Y-%m', tc.created_at)
-            ORDER BY month
-        """
-        monthly_data = pd.read_sql(monthly_query, conn)
+    try:
+        # Get budget data
+        budget = get_current_budget()
         
-        if not monthly_data.empty:
-            fig1 = px.bar(monthly_data, x='month', y='monthly_expense',
-                         title="Monthly Expenditure",
-                         color='monthly_expense',
-                         labels={'monthly_expense': 'Amount (₦)'})
-            st.plotly_chart(fig1, use_container_width=True)
-    
-    with col6:
-        # Department-wise expenditure
-        dept_query = """
-            SELECT u.department, SUM(tc.total_cost) as dept_expense
+        # Summary cards
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.markdown(f"""
+            <div class="metric-card">
+                <h3 style="color: #D32F2F;">₦{budget['total_budget']:,.0f}</h3>
+                <p style="color: #616161;">Total Budget</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown(f"""
+            <div class="metric-card">
+                <h3 style="color: #4CAF50;">₦{budget['utilized_budget']:,.0f}</h3>
+                <p style="color: #616161;">YTD Actual</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col3:
+            st.markdown(f"""
+            <div class="metric-card">
+                <h3 style="color: #2196F3;">₦{budget['balance']:,.0f}</h3>
+                <p style="color: #616161;">Budget Balance</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col4:
+            utilization = (budget['utilized_budget'] / budget['total_budget']) * 100
+            st.markdown(f"""
+            <div class="metric-card">
+                <h3 style="color: {'#4CAF50' if utilization < 80 else '#F44336'};">{utilization:.1f}%</h3>
+                <p style="color: #616161;">Utilization Rate</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        # Detailed analytics
+        col5, col6 = st.columns(2)
+        
+        with col5:
+            # Monthly expenditure
+            monthly_query = """
+                SELECT strftime('%Y-%m', tc.created_at) as month,
+                       SUM(tc.total_cost) as monthly_expense
+                FROM travel_costs tc
+                WHERE tc.payment_status = 'paid'
+                GROUP BY strftime('%Y-%m', tc.created_at)
+                ORDER BY month
+            """
+            monthly_data = pd.read_sql(monthly_query, conn)
+            
+            if not monthly_data.empty:
+                fig1 = px.bar(monthly_data, x='month', y='monthly_expense',
+                             title="Monthly Expenditure",
+                             color='monthly_expense',
+                             labels={'monthly_expense': 'Amount (₦)'})
+                st.plotly_chart(fig1, use_container_width=True)
+        
+        with col6:
+            # Department-wise expenditure
+            dept_query = """
+                SELECT u.department, SUM(tc.total_cost) as dept_expense
+                FROM travel_costs tc
+                JOIN travel_requests tr ON tc.request_id = tr.id
+                JOIN users u ON tr.user_id = u.id
+                WHERE tc.payment_status = 'paid'
+                GROUP BY u.department
+                ORDER BY dept_expense DESC
+            """
+            dept_data = pd.read_sql(dept_query, conn)
+            
+            if not dept_data.empty:
+                fig2 = px.pie(dept_data, values='dept_expense', names='department',
+                             title="Expenditure by Department")
+                st.plotly_chart(fig2, use_container_width=True)
+        
+        # Detailed transaction table
+        st.markdown("### Detailed Transactions")
+        transactions_query = """
+            SELECT tc.id, u.full_name, u.department, tr.destination,
+                   tc.total_cost, tc.payment_status, tc.payment_date,
+                   tc.payment_approved_by
             FROM travel_costs tc
             JOIN travel_requests tr ON tc.request_id = tr.id
             JOIN users u ON tr.user_id = u.id
-            WHERE tc.payment_status = 'paid'
-            GROUP BY u.department
-            ORDER BY dept_expense DESC
+            WHERE tc.total_cost IS NOT NULL
+            ORDER BY tc.created_at DESC
         """
-        dept_data = pd.read_sql(dept_query, conn)
+        transactions = pd.read_sql(transactions_query, conn)
         
-        if not dept_data.empty:
-            fig2 = px.pie(dept_data, values='dept_expense', names='department',
-                         title="Expenditure by Department")
-            st.plotly_chart(fig2, use_container_width=True)
-    
-    # Detailed transaction table
-    st.markdown("### Detailed Transactions")
-    transactions_query = """
-        SELECT tc.id, u.full_name, u.department, tr.destination,
-               tc.total_cost, tc.payment_status, tc.payment_date,
-               tc.payment_approved_by
-        FROM travel_costs tc
-        JOIN travel_requests tr ON tc.request_id = tr.id
-        JOIN users u ON tr.user_id = u.id
-        WHERE tc.total_cost IS NOT NULL
-        ORDER BY tc.created_at DESC
-    """
-    transactions = pd.read_sql(transactions_query, conn)
-    
-    if not transactions.empty:
-        # Export button
-        if st.button("📊 Export to Excel"):
-            # Convert to Excel
-            output = io.BytesIO()
-            with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                transactions.to_excel(writer, index=False, sheet_name='Budget Analytics')
+        if not transactions.empty:
+            # Export button
+            if st.button("📊 Export to Excel"):
+                # Convert to Excel
+                output = io.BytesIO()
+                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                    transactions.to_excel(writer, index=False, sheet_name='Budget Analytics')
+                
+                st.download_button(
+                    label="Download Excel",
+                    data=output.getvalue(),
+                    file_name=f"budget_analytics_{date.today()}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
             
-            st.download_button(
-                label="Download Excel",
-                data=output.getvalue(),
-                file_name=f"budget_analytics_{date.today()}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-        
-        st.dataframe(transactions, use_container_width=True)
-    else:
-        st.info("No transactions found")
-    
-    conn.close()
+            st.dataframe(transactions, use_container_width=True)
+        else:
+            st.info("No transactions found")
+    except Exception as e:
+        st.error(f"Error loading budget analytics: {str(e)}")
+    finally:
+        conn.close()
 
 def analytics_dashboard():
     """Analytics dashboard for all users"""
@@ -2226,114 +2364,120 @@ def analytics_dashboard():
     
     conn = sqlite3.connect('travel_app.db')
     
-    # Role-based analytics
-    if st.session_state.role in ["Head of Administration", "admin"]:
-        # Full analytics for admin
-        travel_data = pd.read_sql("""
-            SELECT tr.*, u.department, u.grade, u.full_name,
-                   tc.total_cost, tc.payment_status
-            FROM travel_requests tr 
-            JOIN users u ON tr.user_id = u.id
-            LEFT JOIN travel_costs tc ON tr.id = tc.request_id
-            WHERE tr.status != 'draft'
-        """, conn)
-    else:
-        # Limited analytics for regular users
-        travel_data = pd.read_sql("""
-            SELECT tr.*, u.department, u.grade, u.full_name,
-                   tc.total_cost, tc.payment_status
-            FROM travel_requests tr 
-            JOIN users u ON tr.user_id = u.id
-            LEFT JOIN travel_costs tc ON tr.id = tc.request_id
-            WHERE tr.user_id = ? AND tr.status != 'draft'
-        """, conn, params=(st.session_state.user_id,))
-    
-    if not travel_data.empty:
-        # Convert dates
-        travel_data['departure_date'] = pd.to_datetime(travel_data['departure_date'])
-        travel_data['month'] = travel_data['departure_date'].dt.strftime('%Y-%m')
-        
-        # Charts
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Travel by department
-            dept_counts = travel_data['department'].value_counts().head(10)
-            fig1 = px.bar(x=dept_counts.index, y=dept_counts.values,
-                         title="Top Departments by Travel",
-                         color=dept_counts.values,
-                         labels={'x': 'Department', 'y': 'Count'})
-            st.plotly_chart(fig1, use_container_width=True)
-        
-        with col2:
-            # Travel by status
-            status_counts = travel_data['status'].value_counts()
-            fig2 = px.pie(values=status_counts.values, names=status_counts.index,
-                         title="Travel Requests by Status",
-                         color=status_counts.index)
-            st.plotly_chart(fig2, use_container_width=True)
-        
-        col3, col4 = st.columns(2)
-        
-        with col3:
-            # Monthly trend
-            monthly_counts = travel_data.groupby('month').size().reset_index(name='count')
-            fig3 = px.line(monthly_counts, x='month', y='count',
-                          title="Monthly Travel Requests Trend",
-                          markers=True)
-            st.plotly_chart(fig3, use_container_width=True)
-        
-        with col4:
-            # Travel by type
-            type_counts = travel_data['travel_type'].value_counts()
-            fig4 = px.bar(x=type_counts.index, y=type_counts.values,
-                         title="Local vs International Travel",
-                         color=type_counts.index,
-                         labels={'x': 'Type', 'y': 'Count'})
-            st.plotly_chart(fig4, use_container_width=True)
-        
-        # Cost analysis for admin
+    try:
+        # Role-based analytics
         if st.session_state.role in ["Head of Administration", "admin"]:
-            st.markdown("---")
-            st.markdown("### Cost Analysis")
+            # Full analytics for admin
+            travel_data = pd.read_sql("""
+                SELECT tr.*, u.department, u.grade, u.full_name,
+                       tc.total_cost, tc.payment_status
+                FROM travel_requests tr 
+                JOIN users u ON tr.user_id = u.id
+                LEFT JOIN travel_costs tc ON tr.id = tc.request_id
+                WHERE tr.status != 'draft'
+            """, conn)
+        else:
+            # Limited analytics for regular users
+            travel_data = pd.read_sql("""
+                SELECT tr.*, u.department, u.grade, u.full_name,
+                       tc.total_cost, tc.payment_status
+                FROM travel_requests tr 
+                JOIN users u ON tr.user_id = u.id
+                LEFT JOIN travel_costs tc ON tr.id = tc.request_id
+                WHERE tr.user_id = ? AND tr.status != 'draft'
+            """, conn, params=(st.session_state.user_id,))
+        
+        if not travel_data.empty:
+            # Convert dates
+            travel_data['departure_date'] = pd.to_datetime(travel_data['departure_date'])
+            travel_data['month'] = travel_data['departure_date'].dt.strftime('%Y-%m')
             
-            cost_data = travel_data.dropna(subset=['total_cost'])
+            # Charts
+            col1, col2 = st.columns(2)
             
-            if not cost_data.empty:
-                col5, col6 = st.columns(2)
+            with col1:
+                # Travel by department
+                dept_counts = travel_data['department'].value_counts().head(10)
+                fig1 = px.bar(x=dept_counts.index, y=dept_counts.values,
+                             title="Top Departments by Travel",
+                             color=dept_counts.values,
+                             labels={'x': 'Department', 'y': 'Count'})
+                st.plotly_chart(fig1, use_container_width=True)
+            
+            with col2:
+                # Travel by status
+                status_counts = travel_data['status'].value_counts()
+                fig2 = px.pie(values=status_counts.values, names=status_counts.index,
+                             title="Travel Requests by Status",
+                             color=status_counts.index)
+                st.plotly_chart(fig2, use_container_width=True)
+            
+            col3, col4 = st.columns(2)
+            
+            with col3:
+                # Monthly trend
+                monthly_counts = travel_data.groupby('month').size().reset_index(name='count')
+                fig3 = px.line(monthly_counts, x='month', y='count',
+                              title="Monthly Travel Requests Trend",
+                              markers=True)
+                st.plotly_chart(fig3, use_container_width=True)
+            
+            with col4:
+                # Travel by type
+                type_counts = travel_data['travel_type'].value_counts()
+                fig4 = px.bar(x=type_counts.index, y=type_counts.values,
+                             title="Local vs International Travel",
+                             color=type_counts.index,
+                             labels={'x': 'Type', 'y': 'Count'})
+                st.plotly_chart(fig4, use_container_width=True)
+            
+            # Cost analysis for admin
+            if st.session_state.role in ["Head of Administration", "admin"]:
+                st.markdown("---")
+                st.markdown("### Cost Analysis")
                 
-                with col5:
-                    # Cost by department
-                    dept_costs = cost_data.groupby('department')['total_cost'].sum().reset_index()
-                    dept_costs = dept_costs.sort_values('total_cost', ascending=False).head(10)
-                    fig5 = px.bar(dept_costs, x='department', y='total_cost',
-                                 title="Top Departments by Cost",
-                                 color='total_cost',
-                                 labels={'total_cost': 'Total Cost (₦)'})
-                    st.plotly_chart(fig5, use_container_width=True)
+                cost_data = travel_data.dropna(subset=['total_cost'])
                 
-                with col6:
-                    # Payment status
-                    payment_counts = cost_data['payment_status'].value_counts()
-                    fig6 = px.pie(values=payment_counts.values, names=payment_counts.index,
-                                 title="Payment Status Distribution",
-                                 color=payment_counts.index)
-                    st.plotly_chart(fig6, use_container_width=True)
-    
-    else:
-        st.info("No data available for analytics")
-    
-    conn.close()
+                if not cost_data.empty:
+                    col5, col6 = st.columns(2)
+                    
+                    with col5:
+                        # Cost by department
+                        dept_costs = cost_data.groupby('department')['total_cost'].sum().reset_index()
+                        dept_costs = dept_costs.sort_values('total_cost', ascending=False).head(10)
+                        fig5 = px.bar(dept_costs, x='department', y='total_cost',
+                                     title="Top Departments by Cost",
+                                     color='total_cost',
+                                     labels={'total_cost': 'Total Cost (₦)'})
+                        st.plotly_chart(fig5, use_container_width=True)
+                    
+                    with col6:
+                        # Payment status
+                        payment_counts = cost_data['payment_status'].value_counts()
+                        fig6 = px.pie(values=payment_counts.values, names=payment_counts.index,
+                                     title="Payment Status Distribution",
+                                     color=payment_counts.index)
+                        st.plotly_chart(fig6, use_container_width=True)
+        else:
+            st.info("No data available for analytics")
+    except Exception as e:
+        st.error(f"Error loading analytics: {str(e)}")
+    finally:
+        conn.close()
 
 # Main app flow
 def main():
-    if not st.session_state.logged_in:
-        if hasattr(st.session_state, 'show_registration') and st.session_state.show_registration:
-            registration_form()
+    try:
+        if not st.session_state.logged_in:
+            if hasattr(st.session_state, 'show_registration') and st.session_state.show_registration:
+                registration_form()
+            else:
+                login()
         else:
-            login()
-    else:
-        dashboard()
+            dashboard()
+    except Exception as e:
+        st.error(f"An error occurred: {str(e)}")
+        st.button("🔄 Restart App", on_click=lambda: st.rerun())
 
 if __name__ == "__main__":
     main()
