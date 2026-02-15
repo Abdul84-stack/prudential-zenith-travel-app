@@ -254,6 +254,8 @@ if 'full_name' not in st.session_state:
     st.session_state.full_name = ''
 if 'user_id' not in st.session_state:
     st.session_state.user_id = None
+if 'selected_state' not in st.session_state:
+    st.session_state.selected_state = None
 
 # Constants
 DEPARTMENTS = [
@@ -266,63 +268,49 @@ DEPARTMENTS = [
 
 GRADES = ["MD", "ED", "GM", "DGM", "AGM", "PM", "SM", "DM", "AM", "SO", "Officer", "EA"]
 
-default_users = [
-    ("CFO/Executive Director", "cfo_ed", "cfo@prudentialzenith.com", 
-     make_hashes("0123456"), "Finance and Investment", "ED", "CFO/ED"),
-    ("Managing Director", "md", "md@prudentialzenith.com", 
-     make_hashes("123456"), "Office of CEO", "MD", "MD"),
-    ("Chief Commercial Officer", "chief_commercial", "commercial@prudentialzenith.com",
-     make_hashes("123456"), "Corporate Sales", "DGM", "Chief Commercial Officer"),
-    ("Chief Agency Officer", "chief_agency", "agency@prudentialzenith.com",
-     make_hashes("123456"), "Agencies", "DGM", "Chief Agency Officer"),
-    ("Chief Compliance Officer", "chief_compliance", "compliance@prudentialzenith.com",
-     make_hashes("123456"), "Legal and Compliance", "DGM", "Chief Compliance Officer"),
-    ("Chief Risk Officer", "chief_risk", "risk@prudentialzenith.com",
-     make_hashes("123456"), "Internal Control and Risk", "DGM", "Chief Risk Officer"),
-    ("Payables Officer", "payables", "payables@prudentialzenith.com",
-     make_hashes("123456"), "Finance and Investment", "Officer", "Payables Officer"),
-    ("Executive Director", "ed", "ed@prudentialzenith.com",
-     make_hashes("123456"), "Office of Executive Director", "ED", "ED")
-]
-# Updated Nigerian states with more cities
+ROLES = ["Employee", "Head of Department", "Head of Administration", "Chief Commercial Officer", 
+         "Chief Agency Officer", "Chief Compliance Officer", "Chief Risk Officer", 
+         "CFO/ED", "ED", "MD", "Payables Officer", "admin"]
+
+# Updated Nigerian states with more cities - FIXED: Properly structured dictionary
 NIGERIAN_STATES = {
-    "Abia": ["Aba", "Umuahia", "Arochukwu", "Ohafia"],
-    "Adamawa": ["Yola", "Mubi", "Jimeta", "Ganye", "Numan"],
-    "Akwa Ibom": ["Uyo", "Eket", "Ikot Ekpene", "Oron", "Ikot Abasi"],
-    "Anambra": ["Awka", "Onitsha", "Nnewi", "Aguata", "Ogidi"],
-    "Bauchi": ["Bauchi", "Azare", "Jama'are", "Katagum", "Misau"],
-    "Bayelsa": ["Yenagoa", "Brass", "Ogbia", "Sagbama", "Ekeremor"],
-    "Benue": ["Makurdi", "Gboko", "Otukpo", "Katsina-Ala", "Vandeikya"],
-    "Borno": ["Maiduguri", "Bama", "Dikwa", "Gwoza", "Monguno"],
-    "Cross River": ["Calabar", "Ugep", "Ogoja", "Obudu", "Ikom"],
-    "Delta": ["Asaba", "Warri", "Sapele", "Ughelli", "Burutu"],
-    "Ebonyi": ["Abakaliki", "Afikpo", "Onueke", "Edda", "Ishielu"],
-    "Edo": ["Benin City", "Auchi", "Ekpoma", "Igueben", "Uromi"],
-    "Ekiti": ["Ado-Ekiti", "Ikere", "Ijun-Ekiti", "Oye", "Ikole"],
-    "Enugu": ["Enugu", "Nsukka", "Agbani", "Udi", "Oji-River"],
-    "FCT": ["Abuja", "Gwagwalada", "Kuje", "Bwari", "Kwali"],
-    "Gombe": ["Gombe", "Kaltungo", "Bajoga", "Dukku", "Nafada"],
-    "Imo": ["Owerri", "Orlu", "Okigwe", "Mgbidi", "Oguta"],
-    "Jigawa": ["Dutse", "Hadejia", "Gumel", "Kazaure", "Ringim"],
-    "Kaduna": ["Kaduna", "Zaria", "Kafanchan", "Saminaka", "Makarf"],
-    "Kano": ["Kano", "Wudil", "Gaya", "Dawakin Kudu", "Bichi"],
-    "Katsina": ["Katsina", "Funtua", "Daura", "Malumfashi", "Kankia"],
-    "Kebbi": ["Birnin Kebbi", "Argungu", "Yelwa", "Zuru", "Gwandu"],
-    "Kogi": ["Lokoja", "Okene", "Idah", "Kabba", "Ankpa"],
-    "Kwara": ["Ilorin", "Offa", "Omu-Aran", "Patigi", "Lafiagi"],
-    "Lagos": ["Lagos", "Ikeja", "Badagry", "Epe", "Ikorodu"],
-    "Nasarawa": ["Lafia", "Keffi", "Akwanga", "Nasarawa", "Karu"],
-    "Niger": ["Minna", "Suleja", "Bida", "Kontagora", "Lapai"],
-    "Ogun": ["Abeokuta", "Sagamu", "Ijebu-Ode", "Ilaro", "Aiyetoro"],
-    "Ondo": ["Akure", "Ondo", "Owo", "Okitipupa", "Ore"],
-    "Osun": ["Osogbo", "Ife", "Ilesa", "Iwo", "Ede"],
-    "Oyo": ["Ibadan", "Ogbomosho", "Oyo", "Iseyin", "Saki"],
-    "Plateau": ["Jos", "Bukuru", "Pankshin", "Shendam", "Langtang"],
-    "Rivers": ["Port Harcourt", "Bonny", "Degema", "Okrika", "Oyigbo"],
-    "Sokoto": ["Sokoto", "Tambuwal", "Wurno", "Gwadabawa", "Illela"],
-    "Taraba": ["Jalingo", "Bali", "Takum", "Wukari", "Serti"],
-    "Yobe": ["Damaturu", "Potiskum", "Gashua", "Geidam", "Nguru"],
-    "Zamfara": ["Gusau", "Kaura Namoda", "Talata Mafara", "Anka", "Bukkuyum"]
+    "Abia": ["Aba", "Umuahia", "Arochukwu", "Ohafia", "Bende", "Isuikwuato"],
+    "Adamawa": ["Yola", "Mubi", "Jimeta", "Ganye", "Numan", "Mayo-Belwa", "Michika"],
+    "Akwa Ibom": ["Uyo", "Eket", "Ikot Ekpene", "Oron", "Ikot Abasi", "Abak", "Etinan"],
+    "Anambra": ["Awka", "Onitsha", "Nnewi", "Aguata", "Ogidi", "Ekwulobia", "Ozubulu"],
+    "Bauchi": ["Bauchi", "Azare", "Jama'are", "Katagum", "Misau", "Ningi", "Darazo"],
+    "Bayelsa": ["Yenagoa", "Brass", "Ogbia", "Sagbama", "Ekeremor", "Nembe", "Amassoma"],
+    "Benue": ["Makurdi", "Gboko", "Otukpo", "Katsina-Ala", "Vandeikya", "Adikpo", "Aliade"],
+    "Borno": ["Maiduguri", "Bama", "Dikwa", "Gwoza", "Monguno", "Biu", "Konduga"],
+    "Cross River": ["Calabar", "Ugep", "Ogoja", "Obudu", "Ikom", "Akamkpa", "Obubra"],
+    "Delta": ["Asaba", "Warri", "Sapele", "Ughelli", "Burutu", "Agbor", "Ozoro"],
+    "Ebonyi": ["Abakaliki", "Afikpo", "Onueke", "Edda", "Ishielu", "Ezza", "Ikwo"],
+    "Edo": ["Benin City", "Auchi", "Ekpoma", "Igueben", "Uromi", "Irrua", "Oredo"],
+    "Ekiti": ["Ado-Ekiti", "Ikere", "Ijun-Ekiti", "Oye", "Ikole", "Efon", "Ise"],
+    "Enugu": ["Enugu", "Nsukka", "Agbani", "Udi", "Oji-River", "Awgu", "Enugu Ezike"],
+    "FCT": ["Abuja", "Gwagwalada", "Kuje", "Bwari", "Kwali", "Abaji", "Karu"],
+    "Gombe": ["Gombe", "Kaltungo", "Bajoga", "Dukku", "Nafada", "Billiri", "Akko"],
+    "Imo": ["Owerri", "Orlu", "Okigwe", "Mgbidi", "Oguta", "Mbaise", "Ohaji"],
+    "Jigawa": ["Dutse", "Hadejia", "Gumel", "Kazaure", "Ringim", "Birnin Kudu", "Babura"],
+    "Kaduna": ["Kaduna", "Zaria", "Kafanchan", "Saminaka", "Makarf", "Birnin Gwari", "Jema'a"],
+    "Kano": ["Kano", "Wudil", "Gaya", "Dawakin Kudu", "Bichi", "Rano", "Kura"],
+    "Katsina": ["Katsina", "Funtua", "Daura", "Malumfashi", "Kankia", "Dutsinma", "Musawa"],
+    "Kebbi": ["Birnin Kebbi", "Argungu", "Yelwa", "Zuru", "Gwandu", "Jega", "Bagudo"],
+    "Kogi": ["Lokoja", "Okene", "Idah", "Kabba", "Ankpa", "Dekina", "Ajaokuta"],
+    "Kwara": ["Ilorin", "Offa", "Omu-Aran", "Patigi", "Lafiagi", "Jebba", "Kaiama"],
+    "Lagos": ["Lagos", "Ikeja", "Badagry", "Epe", "Ikorodu", "Ojo", "Alimosho"],
+    "Nasarawa": ["Lafia", "Keffi", "Akwanga", "Nasarawa", "Karu", "Doma", "Toto"],
+    "Niger": ["Minna", "Suleja", "Bida", "Kontagora", "Lapai", "Agaie", "Mokwa"],
+    "Ogun": ["Abeokuta", "Sagamu", "Ijebu-Ode", "Ilaro", "Aiyetoro", "Ado-Odo", "OttaIjebu"],
+    "Ondo": ["Akure", "Ondo", "Owo", "Okitipupa", "Ore", "Oka", "Ifon"],
+    "Osun": ["Osogbo", "Ife", "Ilesa", "Iwo", "Ede", "Ikirun", "Ejigbo"],
+    "Oyo": ["Ibadan", "Ogbomosho", "Oyo", "Iseyin", "Saki", "Okeho", "Igbo-Ora"],
+    "Plateau": ["Jos", "Bukuru", "Pankshin", "Shendam", "Langtang", "Barkin Ladi", "Mangu"],
+    "Rivers": ["Port Harcourt", "Bonny", "Degema", "Okrika", "Oyigbo", "Ahoada", "Bori"],
+    "Sokoto": ["Sokoto", "Tambuwal", "Wurno", "Gwadabawa", "Illela", "Binji", "Goronyo"],
+    "Taraba": ["Jalingo", "Bali", "Takum", "Wukari", "Serti", "Mutum Biyu", "Ibi"],
+    "Yobe": ["Damaturu", "Potiskum", "Gashua", "Geidam", "Nguru", "Bade", "Fika"],
+    "Zamfara": ["Gusau", "Kaura Namoda", "Talata Mafara", "Anka", "Bukkuyum", "Maru", "Bungudu"]
 }
 
 # Travel policies (updated with full details)
@@ -480,7 +468,7 @@ def init_db():
                   status TEXT DEFAULT 'completed',
                   FOREIGN KEY (cost_id) REFERENCES travel_costs(id))''')
     
-    # Create default users if they don't exist
+    # Create default users if they don't exist - FIXED: Added Head of Administration
     default_users = [
         ("CFO/Executive Director", "cfo_ed", "cfo@prudentialzenith.com", 
          make_hashes("0123456"), "Finance and Investment", "ED", "CFO/ED"),
@@ -497,7 +485,9 @@ def init_db():
         ("Payables Officer", "payables", "payables@prudentialzenith.com",
          make_hashes("123456"), "Finance and Investment", "Officer", "Payables Officer"),
         ("Executive Director", "ed", "ed@prudentialzenith.com",
-         make_hashes("123456"), "Office of Executive Director", "ED", "ED")
+         make_hashes("123456"), "Office of Executive Director", "ED", "ED"),
+        ("Head of Administration", "head_admin", "admin@prudentialzenith.com",
+         make_hashes("123456"), "Administration", "GM", "Head of Administration")
     ]
     
     for user in default_users:
@@ -530,9 +520,11 @@ def get_approval_flow(department, grade, role):
     elif department == "Finance and Investment":
         return ["CFO/ED", "MD"]
     
-    # Administration Department: CFO/ED then MD  
+    # Administration Department: Head of Administration then MD  
     elif department == "Administration":
-        return ["CFO/ED", "MD"]
+        if role == "Head of Administration":
+            return ["MD"]  # Head of Admin self-approval bypass
+        return ["Head of Administration", "MD"]
     
     # Internal Control and Risk Department: CRO then MD
     elif department == "Internal Control and Risk":
@@ -702,43 +694,37 @@ def generate_pdf_report(request_id):
     # Generate PDF in memory
     pdf_bytes = pdf.output(dest='S').encode('latin-1')
     return pdf_bytes
+
 def get_pending_approvals_for_role(role):
     """Get all pending approvals for a specific role"""
     conn = sqlite3.connect('travel_app.db')
     
-    # For roles that appear as first approvers
-    first_approver_roles = ["CFO/ED", "Chief Risk Officer", "Chief Compliance Officer", 
-                           "Chief Commercial Officer", "Chief Agency Officer", "ED", "MD"]
+    # For roles that appear as approvers
+    approver_roles = ["CFO/ED", "Chief Risk Officer", "Chief Compliance Officer", 
+                     "Chief Commercial Officer", "Chief Agency Officer", "ED", "MD",
+                     "Head of Administration", "Head of Department"]
     
-    if role in first_approver_roles:
+    if role in approver_roles:
+        # Get requests where this role is the current approver
         query = """
             SELECT tr.*, u.full_name, u.department, u.grade 
             FROM travel_requests tr 
             JOIN users u ON tr.user_id = u.id 
             WHERE tr.status = 'pending' 
-            AND (tr.current_approver = ? OR tr.current_approver IS NULL)
+            AND tr.current_approver = ?
             ORDER BY tr.created_at DESC
         """
         approvals = pd.read_sql(query, conn, params=(role,))
     
     else:
-        # For other roles (including Head of Department)
-        query = """
-            SELECT tr.*, u.full_name, u.department, u.grade 
-            FROM travel_requests tr 
-            JOIN users u ON tr.user_id = u.id 
-            WHERE tr.status = 'pending' 
-            AND (tr.current_approver = ? OR tr.current_approver IS NULL)
-            AND u.department = ?
-            ORDER BY tr.created_at DESC
-        """
-        approvals = pd.read_sql(query, conn, params=(role, st.session_state.department,))
+        # For other roles (like regular employees) - no pending approvals
+        approvals = pd.DataFrame()
     
     conn.close()
     return approvals
 
 def process_approval(request_id, action, comments=""):
-    """Process approval or rejection of a travel request"""
+    """Process approval or rejection of a travel request - FIXED: Correct approval flow"""
     conn = sqlite3.connect('travel_app.db')
     c = conn.cursor()
     
@@ -750,42 +736,48 @@ def process_approval(request_id, action, comments=""):
         conn.close()
         return False, "Request not found"
     
-    # Get approval flow
+    # Get column indices for clarity
+    # Based on table structure: id, user_id, username, travel_type, destination, city, purpose,
+    # mode_of_travel, departure_date, arrival_date, accommodation_needed, duration_days,
+    # duration_nights, status, current_approver, approval_flow, created_at
+    
+    current_status = request[13]  # status column
+    current_approver = request[14]  # current_approver column
+    approval_flow_json = request[15]  # approval_flow column
+    
     try:
-        approval_flow = json.loads(request[15])  # Column 15 is approval_flow
-        current_approver = request[13]  # Column 13 is current_approver
+        approval_flow = json.loads(approval_flow_json)
     except:
         conn.close()
         return False, "Invalid approval flow data"
     
     if action == "approve":
-        # For single-approver flows (like HR to MD)
-        if len(approval_flow) == 1:
-            new_status = "approved"
-            current_approver = None
-        else:
-            # Find current approver index
-            try:
-                current_index = approval_flow.index(current_approver) if current_approver else 0
-            except ValueError:
-                # If current approver not in flow, start from first
-                current_index = 0
-            
-            # Move to next approver or complete
-            if current_index + 1 < len(approval_flow):
-                next_approver = approval_flow[current_index + 1]
-                new_status = "pending"
-                current_approver = next_approver
+        # Find current approver index
+        try:
+            if current_approver:
+                current_index = approval_flow.index(current_approver)
             else:
-                new_status = "approved"
-                current_approver = None
+                current_index = -1
+        except ValueError:
+            # If current approver not in flow, start from first
+            current_index = -1
+        
+        # Move to next approver or complete
+        if current_index + 1 < len(approval_flow):
+            next_approver = approval_flow[current_index + 1]
+            new_status = "pending"
+            new_current_approver = next_approver
+        else:
+            # This was the last approver
+            new_status = "approved"
+            new_current_approver = None
         
         # Update request
         c.execute("""
             UPDATE travel_requests 
             SET status = ?, current_approver = ? 
             WHERE id = ?
-        """, (new_status, current_approver, request_id))
+        """, (new_status, new_current_approver, request_id))
         
         # Record approval
         c.execute("""
@@ -795,7 +787,8 @@ def process_approval(request_id, action, comments=""):
         """, (request_id, st.session_state.role, st.session_state.full_name, 
               "approved", comments))
         
-        message = "Request approved"
+        conn.commit()
+        message = "Request approved successfully"
         
     elif action == "reject":
         # Update request to rejected
@@ -813,9 +806,9 @@ def process_approval(request_id, action, comments=""):
         """, (request_id, st.session_state.role, st.session_state.full_name, 
               "rejected", comments))
         
+        conn.commit()
         message = "Request rejected"
     
-    conn.commit()
     conn.close()
     return True, message
 
@@ -847,7 +840,7 @@ def login():
         with col_b:
             register_btn = st.button("**CREATE ACCOUNT**", use_container_width=True)
         
-        # Quick login info
+        # Quick login info - FIXED: Added Head of Admin credentials
         st.markdown('<div class="quick-login">', unsafe_allow_html=True)
         st.markdown('<h4>🔑 Quick Login (Test Credentials)</h4>', unsafe_allow_html=True)
         st.markdown("""
@@ -873,12 +866,12 @@ def login():
                 
                 if user and check_hashes(password, user[4]):
                     st.session_state.logged_in = True
-                    st.session_state.username = user[2]
-                    st.session_state.role = user[7]
-                    st.session_state.department = user[5]
-                    st.session_state.grade = user[6]
-                    st.session_state.full_name = user[1]
-                    st.session_state.user_id = user[0]
+                    st.session_state.username = user[2]  # username column
+                    st.session_state.role = user[7]  # role column
+                    st.session_state.department = user[5]  # department column
+                    st.session_state.grade = user[6]  # grade column
+                    st.session_state.full_name = user[1]  # full_name column
+                    st.session_state.user_id = user[0]  # id column
                     st.success(f"✅ Welcome {user[1]}!")
                     time.sleep(1)
                     st.rerun()
@@ -979,7 +972,7 @@ def profile_update():
         
         with col1:
             full_name = st.text_input("Full Name*", value=user_data['full_name'])
-            username = st.text_input("Username (Employee ID)*", value=user_data['username'])
+            username = st.text_input("Username (Employee ID)*", value=user_data['username'], disabled=True)
             email = st.text_input("Email Address*", value=user_data['email'])
             phone_number = st.text_input("Phone Number", value=user_data['phone_number'] or "")
         
@@ -997,7 +990,7 @@ def profile_update():
         submitted = st.form_submit_button("Update Profile")
         
         if submitted:
-            if not all([full_name, username, email]):
+            if not all([full_name, email]):
                 st.error("Please fill in all required fields")
             else:
                 # Update profile picture
@@ -1047,18 +1040,20 @@ def dashboard():
         </div>
         """, unsafe_allow_html=True)
         
-        # Navigation
+        # Navigation - Base menu for all users
         menu_options = ["Dashboard", "My Profile", "Update Profile", "Travel Request", 
                        "Travel History", "Payment Status", "Analytics"]
         
-        # Add Approvals based on role
-        if st.session_state.role in ["MD", "ED", "CFO/ED", "Head of Department", 
-                                    "Chief Commercial Officer", "Chief Agency Officer",
-                                    "Chief Compliance Officer", "Chief Risk Officer"]:
+        # Add Approvals for approver roles
+        approver_roles = ["MD", "ED", "CFO/ED", "Head of Department", "Head of Administration",
+                         "Chief Commercial Officer", "Chief Agency Officer",
+                         "Chief Compliance Officer", "Chief Risk Officer"]
+        
+        if st.session_state.role in approver_roles:
             menu_options.append("Approvals")
         
-        # Role-based navigation
-        if st.session_state.role in ["Head of Administration", "admin"]:
+        # Role-specific menu additions
+        if st.session_state.role == "Head of Administration":
             menu_options.extend(["Admin Panel", "Payment Approvals", "Budget Analytics"])
         elif st.session_state.role == "Chief Compliance Officer":
             menu_options.extend(["Compliance Approvals"])
@@ -1069,14 +1064,32 @@ def dashboard():
         elif st.session_state.role == "Payables Officer":
             menu_options.extend(["Payment Processing"])
         
+        # Map icons to menu options
+        icons_map = {
+            "Dashboard": "house",
+            "My Profile": "person",
+            "Update Profile": "pencil",
+            "Travel Request": "airplane",
+            "Travel History": "clock-history",
+            "Payment Status": "credit-card",
+            "Analytics": "graph-up",
+            "Approvals": "check-circle",
+            "Admin Panel": "gear",
+            "Payment Approvals": "check-circle",
+            "Budget Analytics": "calculator",
+            "Compliance Approvals": "shield-check",
+            "Risk Approvals": "shield-exclamation",
+            "Final Approvals": "check-square",
+            "Payment Processing": "cash"
+        }
+        
+        # Get icons for menu options
+        icons = [icons_map.get(opt, "circle") for opt in menu_options]
+        
         selected = option_menu(
             menu_title="Navigation",
             options=menu_options,
-            icons=["house", "person", "pencil", "airplane", "clock-history", "credit-card", "graph-up",
-                   "check-circle", "gear", "check-circle", "calculator", "shield-check", "shield-exclamation", 
-                   "check-square", "cash"] if st.session_state.role in ["Head of Administration", "admin"] else
-                   ["house", "person", "pencil", "airplane", "clock-history", "credit-card", "graph-up",
-                   "check-circle"],
+            icons=icons,
             menu_icon="compass",
             default_index=0,
             styles={
@@ -1314,7 +1327,7 @@ def show_profile():
     conn.close()
 
 def travel_request_form():
-    """Travel request form"""
+    """Travel request form - FIXED: City selection based on state"""
     st.markdown('<h1 class="sub-header">New Travel Request</h1>', unsafe_allow_html=True)
     
     travel_type = st.radio("Travel Type", ["Local", "International"], horizontal=True)
@@ -1324,8 +1337,20 @@ def travel_request_form():
         
         with col1:
             if travel_type == "Local":
-                state = st.selectbox("State*", list(NIGERIAN_STATES.keys()))
-                city = st.selectbox("City*", NIGERIAN_STATES[state])
+                # FIXED: Use session state to track selected state
+                state = st.selectbox("State*", list(NIGERIAN_STATES.keys()), 
+                                    key="travel_state")
+                
+                # Get cities for selected state
+                cities = NIGERIAN_STATES.get(state, [])
+                
+                # FIXED: City selection based on selected state
+                if cities:
+                    city = st.selectbox("City*", cities, key="travel_city")
+                else:
+                    city = st.text_input("City*")
+                    st.warning("No cities found for selected state")
+                
                 destination = f"{city}, {state}"
             else:
                 country = st.text_input("Country*")
@@ -1483,10 +1508,14 @@ def travel_history():
     if not travel_data.empty:
         # Export button
         if st.button("📊 Export to Excel"):
-            excel_file = travel_data.to_excel(index=False)
+            # Convert to Excel
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                travel_data.to_excel(writer, index=False, sheet_name='Travel History')
+            
             st.download_button(
                 label="Download Excel",
-                data=excel_file,
+                data=output.getvalue(),
                 file_name=f"travel_history_{st.session_state.username}_{date.today()}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
@@ -1584,8 +1613,8 @@ def payment_status():
     conn.close()
 
 def show_approvals():
-    """Display pending approvals for the current user's role"""
-    if st.session_state.role not in ["MD", "ED", "CFO/ED", "Head of Department", 
+    """Display pending approvals for the current user's role - FIXED: Proper approval display"""
+    if st.session_state.role not in ["MD", "ED", "CFO/ED", "Head of Department", "Head of Administration",
                                     "Chief Commercial Officer", "Chief Agency Officer",
                                     "Chief Compliance Officer", "Chief Risk Officer"]:
         st.warning("You don't have approval privileges")
@@ -1621,19 +1650,22 @@ def show_approvals():
                     st.markdown(f"**Accommodation:** {row['accommodation_needed']}")
                 
                 # Show approval flow
-                approval_flow = json.loads(row['approval_flow'])
-                current_index = approval_flow.index(row['current_approver']) if row['current_approver'] in approval_flow else -1
-                
-                st.markdown("**Approval Flow:**")
-                cols = st.columns(len(approval_flow))
-                for i, approver in enumerate(approval_flow):
-                    with cols[i]:
-                        if i < current_index:
-                            st.markdown(f"✅ {approver}")
-                        elif i == current_index:
-                            st.markdown(f"⏳ **{approver}** (Current - YOU)")
-                        else:
-                            st.markdown(f"⏭️ {approver}")
+                try:
+                    approval_flow = json.loads(row['approval_flow'])
+                    current_index = approval_flow.index(row['current_approver']) if row['current_approver'] in approval_flow else -1
+                    
+                    st.markdown("**Approval Flow:**")
+                    cols = st.columns(len(approval_flow))
+                    for i, approver in enumerate(approval_flow):
+                        with cols[i]:
+                            if i < current_index:
+                                st.markdown(f"✅ {approver}")
+                            elif i == current_index:
+                                st.markdown(f"⏳ **{approver}** (Current - YOU)")
+                            else:
+                                st.markdown(f"⏭️ {approver}")
+                except:
+                    st.markdown("**Approval Flow:** Not available")
                 
                 # Approval actions
                 st.markdown("---")
@@ -1650,20 +1682,36 @@ def show_approvals():
                             st.error(message)
                 
                 with col_b:
-                    if st.button(f"❌ Reject", key=f"reject_{row['id']}"):
-                        comments = st.text_input("Reason for rejection", key=f"reject_reason_{row['id']}")
-                        if comments:
-                            success, message = process_approval(row['id'], "reject", comments)
-                            if success:
-                                st.error(message)
-                                time.sleep(2)
+                    # For reject button with comment
+                    reject_key = f"reject_{row['id']}"
+                    comment_key = f"reject_reason_{row['id']}"
+                    
+                    if st.button(f"❌ Reject", key=reject_key):
+                        st.session_state[f"show_reject_{row['id']}"] = True
+                    
+                    if st.session_state.get(f"show_reject_{row['id']}", False):
+                        comments = st.text_area("Reason for rejection", key=comment_key)
+                        col_c, col_d = st.columns(2)
+                        with col_c:
+                            if st.button(f"Confirm Reject", key=f"confirm_{row['id']}"):
+                                if comments:
+                                    success, message = process_approval(row['id'], "reject", comments)
+                                    if success:
+                                        st.error(message)
+                                        st.session_state[f"show_reject_{row['id']}"] = False
+                                        time.sleep(2)
+                                        st.rerun()
+                                else:
+                                    st.warning("Please provide a reason for rejection")
+                        with col_d:
+                            if st.button(f"Cancel", key=f"cancel_{row['id']}"):
+                                st.session_state[f"show_reject_{row['id']}"] = False
                                 st.rerun()
-                        else:
-                            st.warning("Please provide a reason for rejection")
                 
                 st.markdown("---")
     else:
         st.success("🎉 No pending approvals! You're all caught up.")
+
 def admin_panel():
     """Admin panel for managing travel costs"""
     if st.session_state.role not in ["Head of Administration", "admin"]:
@@ -2154,10 +2202,14 @@ def budget_analytics():
     if not transactions.empty:
         # Export button
         if st.button("📊 Export to Excel"):
-            excel_file = transactions.to_excel(index=False)
+            # Convert to Excel
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                transactions.to_excel(writer, index=False, sheet_name='Budget Analytics')
+            
             st.download_button(
                 label="Download Excel",
-                data=excel_file,
+                data=output.getvalue(),
                 file_name=f"budget_analytics_{date.today()}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
@@ -2285,8 +2337,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
