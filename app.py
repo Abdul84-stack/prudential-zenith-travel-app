@@ -424,13 +424,126 @@ class PDFReport(FPDF):
         self.cell(40, 8, f'{label}:', 0, 0)
         self.set_font('Arial', '', 10)
         self.set_text_color(33, 33, 33)
-        # Convert value to string and handle any encoding issues
+        
+        # Convert value to string and replace Naira symbol with "NGN"
         if isinstance(value, bytes):
             value = value.decode('utf-8', errors='ignore')
         else:
             value = str(value)
+        
+        # Replace Naira symbol (NGN) with "NGN" to avoid encoding issues
+        value = value.replace('NGN', 'NGN ')
+        
+        # Use multi_cell with proper encoding
         self.multi_cell(0, 8, value, 0, 1)
 
+def generate_pdf_report(request_id):
+    """Generate PDF report for travel request - FIXED: Unicode handling"""
+    conn = None
+    try:
+        conn = sqlite3.connect('travel_app.db')
+        
+        # Get request details
+        request_query = """
+            SELECT tr.*, u.full_name, u.department, u.grade, u.email,
+                   u.bank_name, u.account_number, u.account_name
+            FROM travel_requests tr
+            JOIN users u ON tr.user_id = u.id
+            WHERE tr.id = ?
+        """
+        request_data = pd.read_sql(request_query, conn, params=(request_id,)).iloc[0]
+        
+        # Get cost details
+        cost_query = """
+            SELECT * FROM travel_costs WHERE request_id = ?
+        """
+        cost_data = pd.read_sql(cost_query, conn, params=(request_id,))
+        
+        # Get approval history
+        approval_query = """
+            SELECT * FROM approvals WHERE request_id = ? ORDER BY approved_at
+        """
+        approvals = pd.read_sql(approval_query, conn, params=(request_id,))
+        
+        # Create PDF
+        pdf = PDFReport()
+        pdf.add_page()
+        pdf.set_auto_page_break(auto=True, margin=15)
+        
+        # Add request details
+        pdf.add_section_title("Travel Request Details")
+        pdf.add_field("Request ID", f"TR-{request_id:06d}")
+        pdf.add_field("Employee", request_data['full_name'])
+        pdf.add_field("Department", request_data['department'])
+        pdf.add_field("Grade", request_data['grade'])
+        pdf.add_field("Travel Type", request_data['travel_type'].title())
+        pdf.add_field("Destination", request_data['destination'])
+        pdf.add_field("Purpose", request_data['purpose'])
+        pdf.add_field("Mode of Travel", request_data['mode_of_travel'])
+        pdf.add_field("Departure Date", request_data['departure_date'])
+        pdf.add_field("Arrival Date", request_data['arrival_date'])
+        pdf.add_field("Duration", f"{request_data['duration_days']} days ({request_data['duration_nights']} nights)")
+        pdf.add_field("Accommodation", request_data['accommodation_needed'])
+        pdf.add_field("Status", request_data['status'].upper())
+        
+        # Add cost details if available
+        if not cost_data.empty:
+            pdf.add_section_title("Cost Details")
+            cost = cost_data.iloc[0]
+            pdf.add_field("Per Diem Amount", f"NGN {cost['per_diem_amount']:,.2f}")
+            pdf.add_field("Flight Cost", f"NGN {cost['flight_cost']:,.2f}")
+            pdf.add_field("Total Cost", f"NGN {cost['total_cost']:,.2f}")
+            pdf.add_field("Payment Status", cost['payment_status'].upper())
+            pdf.add_field("Budgeted Cost", f"NGN {cost['budgeted_cost']:,.2f}" if cost['budgeted_cost'] else "N/A")
+            pdf.add_field("Budget Balance", f"NGN {cost['budget_balance']:,.2f}" if cost['budget_balance'] else "N/A")
+        
+        # Add approval history
+        if not approvals.empty:
+            pdf.add_section_title("Approval History")
+            for _, approval in approvals.iterrows():
+                pdf.add_field(f"{approval['approver_role']}", 
+                             f"{approval['status'].upper()} - {approval['approved_at']}")
+        
+        # Add employee bank details
+        pdf.add_section_title("Employee Bank Details")
+        pdf.add_field("Bank Name", request_data['bank_name'] or "Not Provided")
+        pdf.add_field("Account Number", request_data['account_number'] or "Not Provided")
+        pdf.add_field("Account Name", request_data['account_name'] or "Not Provided")
+        
+        # Generate PDF as string and encode properly
+        pdf_str = pdf.output(dest='S')
+        
+        # For fpdf, we need to handle the output differently
+        # Instead of encoding, we'll use the string directly as fpdf handles Unicode internally
+        if isinstance(pdf_str, str):
+            # For newer versions of fpdf that return string
+            pdf_bytes = pdf_str.encode('utf-8')
+        else:
+            # For older versions that return bytes
+            pdf_bytes = pdf_str
+        
+        return pdf_bytes
+        
+    except Exception as e:
+        st.error(f"Error generating PDF: {str(e)}")
+        # Return a simple error PDF as bytes
+        try:
+            # Create a simple error PDF
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.set_font('Arial', 'B', 16)
+            pdf.cell(0, 10, 'Error Generating Report', 0, 1, 'C')
+            pdf.set_font('Arial', '', 12)
+            pdf.cell(0, 10, f'An error occurred: {str(e)}', 0, 1, 'C')
+            pdf_str = pdf.output(dest='S')
+            if isinstance(pdf_str, str):
+                return pdf_str.encode('utf-8')
+            return pdf_str
+        except:
+            return None
+    finally:
+        if conn:
+            conn.close()
 # Database initialization with enhanced schema
 def init_db():
     conn = sqlite3.connect('travel_app.db')
@@ -672,16 +785,54 @@ def calculate_travel_costs(grade, travel_type, duration_nights):
         return policy["total_ngn"] * duration_nights
 
 def get_current_budget():
-    """Get current budget information"""
-    conn = sqlite3.connect('travel_app.db')
-    current_year = datetime.datetime.now().year
-    budget = pd.read_sql("SELECT * FROM budget WHERE year = ?", 
-                        conn, params=(current_year,)).iloc[0]
-    conn.close()
-    return budget
+    """Get current budget information with error handling"""
+    conn = None
+    try:
+        conn = sqlite3.connect('travel_app.db')
+        current_year = datetime.datetime.now().year
+        
+        # Check if budget record exists
+        c = conn.cursor()
+        c.execute("SELECT * FROM budget WHERE year = ?", (current_year,))
+        budget_record = c.fetchone()
+        
+        if budget_record:
+            # Convert to dictionary for easier access
+            columns = ['id', 'year', 'total_budget', 'utilized_budget', 'balance', 'last_updated']
+            budget = dict(zip(columns, budget_record))
+        else:
+            # Create budget record if it doesn't exist
+            c.execute('''INSERT INTO budget (year, total_budget, utilized_budget, balance)
+                         VALUES (?, ?, 0, ?)''', 
+                     (current_year, ANNUAL_BUDGET, ANNUAL_BUDGET))
+            conn.commit()
+            
+            # Return default budget
+            budget = {
+                'id': None,
+                'year': current_year,
+                'total_budget': ANNUAL_BUDGET,
+                'utilized_budget': 0,
+                'balance': ANNUAL_BUDGET,
+                'last_updated': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+        
+        return budget
+    except Exception as e:
+        st.error(f"Error getting budget: {str(e)}")
+        # Return default budget as fallback
+        return {
+            'year': datetime.datetime.now().year,
+            'total_budget': ANNUAL_BUDGET,
+            'utilized_budget': 0,
+            'balance': ANNUAL_BUDGET
+        }
+    finally:
+        if conn:
+            conn.close()
 
 def update_budget(amount):
-    """Update budget after payment - FIXED: Added error handling"""
+    """Update budget after payment with improved error handling"""
     conn = None
     try:
         conn = sqlite3.connect('travel_app.db')
@@ -693,6 +844,7 @@ def update_budget(amount):
         budget = c.fetchone()
         
         if budget:
+            # Update existing budget
             c.execute('''UPDATE budget 
                          SET utilized_budget = utilized_budget + ?, 
                              balance = balance - ?,
@@ -706,8 +858,250 @@ def update_budget(amount):
                      (current_year, ANNUAL_BUDGET, amount, ANNUAL_BUDGET - amount))
         
         conn.commit()
+        return True
     except Exception as e:
         st.error(f"Error updating budget: {str(e)}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+def budget_analytics():
+    """Budget analytics dashboard - FIXED with better error handling"""
+    if st.session_state.role not in ["Head of Administration", "admin"]:
+        st.warning("Access denied")
+        return
+    
+    st.markdown('<h1 class="sub-header">Budget Analytics</h1>', unsafe_allow_html=True)
+    
+    conn = None
+    try:
+        conn = sqlite3.connect('travel_app.db')
+        
+        # Get budget data
+        budget = get_current_budget()
+        
+        # Calculate utilization
+        utilization = (budget['utilized_budget'] / budget['total_budget']) * 100 if budget['total_budget'] > 0 else 0
+        
+        # Summary cards
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.markdown(f"""
+            <div class="metric-card">
+                <h3 style="color: #D32F2F;">₦{budget['total_budget']:,.0f}</h3>
+                <p style="color: #616161;">Total Budget</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown(f"""
+            <div class="metric-card">
+                <h3 style="color: #4CAF50;">₦{budget['utilized_budget']:,.0f}</h3>
+                <p style="color: #616161;">YTD Actual</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col3:
+            st.markdown(f"""
+            <div class="metric-card">
+                <h3 style="color: #2196F3;">₦{budget['balance']:,.0f}</h3>
+                <p style="color: #616161;">Budget Balance</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col4:
+            st.markdown(f"""
+            <div class="metric-card">
+                <h3 style="color: {'#4CAF50' if utilization < 80 else '#F44336'};">{utilization:.1f}%</h3>
+                <p style="color: #616161;">Utilization Rate</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        # Detailed analytics
+        col5, col6 = st.columns(2)
+        
+        with col5:
+            st.markdown("### Monthly Expenditure")
+            # Monthly expenditure query
+            monthly_query = """
+                SELECT 
+                    strftime('%Y-%m', tc.created_at) as month,
+                    COUNT(DISTINCT tr.id) as request_count,
+                    SUM(tc.total_cost) as monthly_expense
+                FROM travel_costs tc
+                JOIN travel_requests tr ON tc.request_id = tr.id
+                WHERE tc.payment_status = 'paid' 
+                  AND tc.total_cost IS NOT NULL
+                GROUP BY strftime('%Y-%m', tc.created_at)
+                ORDER BY month DESC
+                LIMIT 12
+            """
+            monthly_data = pd.read_sql(monthly_query, conn)
+            
+            if not monthly_data.empty:
+                fig1 = px.bar(monthly_data, x='month', y='monthly_expense',
+                             title="Monthly Expenditure (Last 12 Months)",
+                             color='monthly_expense',
+                             labels={'monthly_expense': 'Amount (₦)', 'month': 'Month'},
+                             text='request_count')
+                fig1.update_traces(texttemplate='%{text} requests', textposition='outside')
+                st.plotly_chart(fig1, use_container_width=True)
+            else:
+                st.info("No expenditure data available")
+        
+        with col6:
+            st.markdown("### Department-wise Expenditure")
+            # Department-wise expenditure query
+            dept_query = """
+                SELECT 
+                    u.department,
+                    COUNT(DISTINCT tr.id) as request_count,
+                    SUM(tc.total_cost) as dept_expense
+                FROM travel_costs tc
+                JOIN travel_requests tr ON tc.request_id = tr.id
+                JOIN users u ON tr.user_id = u.id
+                WHERE tc.payment_status = 'paid'
+                  AND tc.total_cost IS NOT NULL
+                GROUP BY u.department
+                HAVING dept_expense > 0
+                ORDER BY dept_expense DESC
+            """
+            dept_data = pd.read_sql(dept_query, conn)
+            
+            if not dept_data.empty:
+                fig2 = px.pie(dept_data, values='dept_expense', names='department',
+                             title="Expenditure by Department",
+                             hole=0.3)
+                fig2.update_traces(textposition='inside', textinfo='percent+label')
+                st.plotly_chart(fig2, use_container_width=True)
+                
+                # Show department breakdown table
+                with st.expander("View Department Breakdown"):
+                    dept_data['dept_expense'] = dept_data['dept_expense'].apply(lambda x: f"₦{x:,.2f}")
+                    st.dataframe(dept_data, use_container_width=True)
+            else:
+                st.info("No department expenditure data available")
+        
+        st.markdown("---")
+        
+        # Detailed transaction table
+        st.markdown("### Detailed Transactions")
+        
+        # Date range filter
+        col_start, col_end = st.columns(2)
+        with col_start:
+            start_date = st.date_input("Start Date", value=date.today() - timedelta(days=30))
+        with col_end:
+            end_date = st.date_input("End Date", value=date.today())
+        
+        # Transactions query with date filter
+        transactions_query = """
+            SELECT 
+                tc.id as Transaction_ID,
+                u.full_name as Employee_Name,
+                u.department as Department,
+                tr.destination as Destination,
+                tr.travel_type as Travel_Type,
+                tc.total_cost as Amount,
+                tc.payment_status as Payment_Status,
+                tc.payment_date as Payment_Date,
+                tc.payment_approved_by as Approved_By
+            FROM travel_costs tc
+            JOIN travel_requests tr ON tc.request_id = tr.id
+            JOIN users u ON tr.user_id = u.id
+            WHERE tc.total_cost IS NOT NULL
+              AND date(tc.created_at) BETWEEN date(?) AND date(?)
+            ORDER BY tc.created_at DESC
+        """
+        
+        transactions = pd.read_sql(transactions_query, conn, 
+                                  params=(start_date.strftime('%Y-%m-%d'), 
+                                         end_date.strftime('%Y-%m-%d')))
+        
+        if not transactions.empty:
+            # Summary stats
+            total_amount = transactions['Amount'].sum()
+            avg_amount = transactions['Amount'].mean()
+            transaction_count = len(transactions)
+            
+            col7, col8, col9 = st.columns(3)
+            with col7:
+                st.metric("Total Transactions", f"{transaction_count}")
+            with col8:
+                st.metric("Total Amount", f"₦{total_amount:,.2f}")
+            with col9:
+                st.metric("Average Amount", f"₦{avg_amount:,.2f}")
+            
+            # Export button
+            if st.button("📊 Export to Excel"):
+                # Convert to Excel
+                output = io.BytesIO()
+                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                    transactions.to_excel(writer, index=False, sheet_name='Budget Analytics')
+                
+                st.download_button(
+                    label="Download Excel",
+                    data=output.getvalue(),
+                    file_name=f"budget_analytics_{date.today()}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+            
+            # Format Amount column for display
+            display_transactions = transactions.copy()
+            display_transactions['Amount'] = display_transactions['Amount'].apply(lambda x: f"₦{x:,.2f}")
+            st.dataframe(display_transactions, use_container_width=True)
+        else:
+            st.info(f"No transactions found between {start_date} and {end_date}")
+        
+        # Budget projection
+        st.markdown("---")
+        st.markdown("### Budget Projection")
+        
+        # Calculate average monthly spend
+        monthly_avg_query = """
+            SELECT AVG(monthly_total) as avg_monthly_spend
+            FROM (
+                SELECT strftime('%Y-%m', tc.created_at) as month,
+                       SUM(tc.total_cost) as monthly_total
+                FROM travel_costs tc
+                WHERE tc.payment_status = 'paid'
+                  AND tc.total_cost IS NOT NULL
+                GROUP BY strftime('%Y-%m', tc.created_at)
+            )
+        """
+        avg_result = pd.read_sql(monthly_avg_query, conn)
+        avg_monthly_spend = avg_result.iloc[0]['avg_monthly_spend'] if not avg_result.empty else 0
+        
+        if avg_monthly_spend and avg_monthly_spend > 0:
+            months_remaining = 12 - datetime.datetime.now().month
+            projected_spend = avg_monthly_spend * months_remaining
+            projected_total = budget['utilized_budget'] + projected_spend
+            projected_balance = budget['total_budget'] - projected_total
+            
+            col10, col11, col12 = st.columns(3)
+            with col10:
+                st.metric("Average Monthly Spend", f"₦{avg_monthly_spend:,.2f}")
+            with col11:
+                st.metric("Projected Year-End", f"₦{projected_total:,.2f}")
+            with col12:
+                st.metric("Projected Balance", f"₦{projected_balance:,.2f}")
+            
+            # Projection warning
+            if projected_total > budget['total_budget']:
+                st.warning(f"⚠️ Projected year-end spend (₦{projected_total:,.2f}) exceeds budget by ₦{projected_total - budget['total_budget']:,.2f}")
+            elif projected_balance < budget['total_budget'] * 0.1:
+                st.warning(f"⚠️ Projected year-end balance (₦{projected_balance:,.2f}) is less than 10% of budget")
+            else:
+                st.success(f"✅ Projected year-end spend is within budget")
+    
+    except Exception as e:
+        st.error(f"Error loading budget analytics: {str(e)}")
+        import traceback
+        st.error(traceback.format_exc())
     finally:
         if conn:
             conn.close()
@@ -765,12 +1159,12 @@ def generate_pdf_report(request_id):
         if not cost_data.empty:
             pdf.add_section_title("Cost Details")
             cost = cost_data.iloc[0]
-            pdf.add_field("Per Diem Amount", f"₦{cost['per_diem_amount']:,.2f}")
-            pdf.add_field("Flight Cost", f"₦{cost['flight_cost']:,.2f}")
-            pdf.add_field("Total Cost", f"₦{cost['total_cost']:,.2f}")
+            pdf.add_field("Per Diem Amount", f"NGN{cost['per_diem_amount']:,.2f}")
+            pdf.add_field("Flight Cost", f"NGN{cost['flight_cost']:,.2f}")
+            pdf.add_field("Total Cost", f"NGN{cost['total_cost']:,.2f}")
             pdf.add_field("Payment Status", cost['payment_status'].upper())
-            pdf.add_field("Budgeted Cost", f"₦{cost['budgeted_cost']:,.2f}" if cost['budgeted_cost'] else "N/A")
-            pdf.add_field("Budget Balance", f"₦{cost['budget_balance']:,.2f}" if cost['budget_balance'] else "N/A")
+            pdf.add_field("Budgeted Cost", f"NGN{cost['budgeted_cost']:,.2f}" if cost['budgeted_cost'] else "N/A")
+            pdf.add_field("Budget Balance", f"NGN{cost['budget_balance']:,.2f}" if cost['budget_balance'] else "N/A")
         
         # Add approval history
         if not approvals.empty:
@@ -1217,13 +1611,13 @@ def dashboard():
                             padding: 15px; border-radius: 10px; margin-top: 20px; border-left: 4px solid #D32F2F;">
                     <h5 style="color: #424242; margin-bottom: 10px;">💰 Budget Overview</h5>
                     <p style="color: #616161; margin: 5px 0; font-size: 0.9rem;">
-                        <strong>Total:</strong> ₦{budget['total_budget']:,.0f}
+                        <strong>Total:</strong> NGN{budget['total_budget']:,.0f}
                     </p>
                     <p style="color: #616161; margin: 5px 0; font-size: 0.9rem;">
-                        <strong>Utilized:</strong> ₦{budget['utilized_budget']:,.0f}
+                        <strong>Utilized:</strong> NGN{budget['utilized_budget']:,.0f}
                     </p>
                     <p style="color: #616161; margin: 5px 0; font-size: 0.9rem;">
-                        <strong>Balance:</strong> ₦{budget['balance']:,.0f}
+                        <strong>Balance:</strong> NGN{budget['balance']:,.0f}
                     </p>
                     <div style="background: #e0e0e0; height: 8px; border-radius: 4px; margin-top: 10px;">
                         <div style="background: {'#4CAF50' if utilization < 80 else '#F44336'}; 
@@ -1380,11 +1774,11 @@ def show_dashboard():
             col5, col6, col7 = st.columns(3)
             
             with col5:
-                st.metric("Total Budget", f"₦{budget['total_budget']:,.0f}")
+                st.metric("Total Budget", f"NGN{budget['total_budget']:,.0f}")
             with col6:
-                st.metric("Utilized", f"₦{budget['utilized_budget']:,.0f}")
+                st.metric("Utilized", f"NGN{budget['utilized_budget']:,.0f}")
             with col7:
-                st.metric("Balance", f"₦{budget['balance']:,.0f}")
+                st.metric("Balance", f"NGN{budget['balance']:,.0f}")
             
             # Progress bar
             utilization = (budget['utilized_budget'] / budget['total_budget']) * 100
@@ -1530,7 +1924,7 @@ def travel_request_form():
                 st.info(f"**Out of Station:** {policy['out_of_station_text']}")
             with col_d:
                 st.info(f"**Airport Taxi:** {policy['airport_taxi_text']}")
-            st.info(f"**Total per day:** ${policy['total_usd']} (₦{policy['total_ngn']:,.0f})")
+            st.info(f"**Total per day:** ${policy['total_usd']} (NGN{policy['total_ngn']:,.0f})")
         
         submitted = st.form_submit_button("Submit Request", type="primary")
         
@@ -1589,7 +1983,7 @@ def travel_request_form():
                 # Calculate estimated costs
                 estimated_total = calculate_travel_costs(st.session_state.grade, travel_type.lower(), duration_nights)
                 if estimated_total > 0:
-                    st.metric("Estimated Total Cost", f"₦{estimated_total:,.2f}")
+                    st.metric("Estimated Total Cost", f"NGN{estimated_total:,.2f}")
 
 def travel_history():
     """Travel history page"""
@@ -1672,7 +2066,7 @@ def travel_history():
                         st.markdown(f"**Payment:** {payment_badge}", unsafe_allow_html=True)
                     
                     if pd.notna(row['total_cost']):
-                        st.markdown(f"**Total Cost:** ₦{row['total_cost']:,.2f}")
+                        st.markdown(f"**Total Cost:** NGN{row['total_cost']:,.2f}")
                 
                 # Download PDF button
                 col_d, col_e = st.columns(2)
@@ -1732,7 +2126,7 @@ def payment_status():
                 </div>
                 <p><strong>Purpose:</strong> {row['purpose']}</p>
                 <p><strong>Dates:</strong> {row['departure_date']} to {row['arrival_date']}</p>
-                <p><strong>Amount:</strong> ₦{row['total_cost']:,.2f}</p>
+                <p><strong>Amount:</strong> NGN{row['total_cost']:,.2f}</p>
                 {f"<p><strong>Approved By:</strong> {row['payment_approved_by']}</p>" if row['payment_approved_by'] else ""}
                 {f"<p><strong>Payment Date:</strong> {row['payment_date']}</p>" if row['payment_date'] else ""}
             </div>
@@ -1895,9 +2289,9 @@ def admin_panel():
                     
                     with col_b:
                         budget_balance = budget['balance'] - budgeted_cost
-                        st.metric("Current Budget Balance", f"₦{budget['balance']:,.0f}")
-                        st.metric("After This Request", f"₦{budget_balance:,.0f}", 
-                                 delta=f"-₦{budgeted_cost:,.0f}")
+                        st.metric("Current Budget Balance", f"NGN{budget['balance']:,.0f}")
+                        st.metric("After This Request", f"NGN{budget_balance:,.0f}", 
+                                 delta=f"-NGN{budgeted_cost:,.0f}")
                     
                     supporting_docs = st.file_uploader("Supporting Documents", 
                                                       type=['pdf', 'jpg', 'png'],
@@ -2013,11 +2407,11 @@ def payment_approvals():
                     st.markdown(f"**Purpose:** {row['purpose']}")
                 
                 with col2:
-                    st.markdown(f"**Per Diem:** ₦{row['per_diem_amount']:,.2f}")
-                    st.markdown(f"**Flight Cost:** ₦{row['flight_cost']:,.2f}")
-                    st.markdown(f"**Total Cost:** ₦{row['total_cost']:,.2f}")
-                    st.markdown(f"**Budgeted:** ₦{row['budgeted_cost']:,.2f}")
-                    st.markdown(f"**Budget Balance:** ₦{row['budget_balance']:,.2f}")
+                    st.markdown(f"**Per Diem:** NGN{row['per_diem_amount']:,.2f}")
+                    st.markdown(f"**Flight Cost:** NGN{row['flight_cost']:,.2f}")
+                    st.markdown(f"**Total Cost:** NGN{row['total_cost']:,.2f}")
+                    st.markdown(f"**Budgeted:** NGN{row['budgeted_cost']:,.2f}")
+                    st.markdown(f"**Budget Balance:** NGN{row['budget_balance']:,.2f}")
                 
                 # Get payment approval flow
                 approval_flow = get_payment_approval_flow(row['total_cost'])
@@ -2084,7 +2478,7 @@ def payment_approvals():
                                        VALUES (?, ?, ?, ?, ?)""",
                                      (row['request_id'], st.session_state.role, 
                                       st.session_state.full_name, "approved",
-                                      f"Payment approved - ₦{row['total_cost']:,.2f}"))
+                                      f"Payment approved - NGN{row['total_cost']:,.2f}"))
                             
                             conn.commit()
                             st.success("✅ Payment approved!")
@@ -2166,13 +2560,13 @@ def payment_processing():
     
     if not approved_payments.empty:
         for _, row in approved_payments.iterrows():
-            with st.expander(f"Payment #{row['id']} - {row['full_name']} - ₦{row['total_cost']:,.2f}", expanded=False):
+            with st.expander(f"Payment #{row['id']} - {row['full_name']} - NGN{row['total_cost']:,.2f}", expanded=False):
                 col1, col2 = st.columns(2)
                 
                 with col1:
                     st.markdown(f"**Employee:** {row['full_name']}")
                     st.markdown(f"**Destination:** {row['destination']}")
-                    st.markdown(f"**Amount:** ₦{row['total_cost']:,.2f}")
+                    st.markdown(f"**Amount:** NGN{row['total_cost']:,.2f}")
                     st.markdown(f"**Approved By:** {row['payment_approved_by']}")
                     st.markdown(f"**Approved Date:** {row['payment_approved_date']}")
                 
@@ -2216,7 +2610,7 @@ def payment_processing():
                                        VALUES (?, ?, ?, ?, ?)""",
                                      (row['request_id'], "Payables Officer", 
                                       st.session_state.full_name, "completed",
-                                      f"Payment processed - ₦{row['total_cost']:,.2f}"))
+                                      f"Payment processed - NGN{row['total_cost']:,.2f}"))
                             
                             conn.commit()
                             st.success("✅ Payment marked as completed!")
@@ -2249,7 +2643,7 @@ def budget_analytics():
         with col1:
             st.markdown(f"""
             <div class="metric-card">
-                <h3 style="color: #D32F2F;">₦{budget['total_budget']:,.0f}</h3>
+                <h3 style="color: #D32F2F;">NGN{budget['total_budget']:,.0f}</h3>
                 <p style="color: #616161;">Total Budget</p>
             </div>
             """, unsafe_allow_html=True)
@@ -2257,7 +2651,7 @@ def budget_analytics():
         with col2:
             st.markdown(f"""
             <div class="metric-card">
-                <h3 style="color: #4CAF50;">₦{budget['utilized_budget']:,.0f}</h3>
+                <h3 style="color: #4CAF50;">NGN{budget['utilized_budget']:,.0f}</h3>
                 <p style="color: #616161;">YTD Actual</p>
             </div>
             """, unsafe_allow_html=True)
@@ -2265,7 +2659,7 @@ def budget_analytics():
         with col3:
             st.markdown(f"""
             <div class="metric-card">
-                <h3 style="color: #2196F3;">₦{budget['balance']:,.0f}</h3>
+                <h3 style="color: #2196F3;">NGN{budget['balance']:,.0f}</h3>
                 <p style="color: #616161;">Budget Balance</p>
             </div>
             """, unsafe_allow_html=True)
@@ -2300,7 +2694,7 @@ def budget_analytics():
                 fig1 = px.bar(monthly_data, x='month', y='monthly_expense',
                              title="Monthly Expenditure",
                              color='monthly_expense',
-                             labels={'monthly_expense': 'Amount (₦)'})
+                             labels={'monthly_expense': 'Amount (NGN)'})
                 st.plotly_chart(fig1, use_container_width=True)
         
         with col6:
@@ -2448,7 +2842,7 @@ def analytics_dashboard():
                         fig5 = px.bar(dept_costs, x='department', y='total_cost',
                                      title="Top Departments by Cost",
                                      color='total_cost',
-                                     labels={'total_cost': 'Total Cost (₦)'})
+                                     labels={'total_cost': 'Total Cost (NGN)'})
                         st.plotly_chart(fig5, use_container_width=True)
                     
                     with col6:
@@ -2481,3 +2875,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
