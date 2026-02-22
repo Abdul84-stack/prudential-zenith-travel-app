@@ -726,6 +726,7 @@ def calculate_travel_costs(grade, travel_type, duration_nights):
         total = accommodation_cost + feeding_cost + out_of_station_cost + airport_taxi_cost
         
         return total, accommodation_cost, feeding_cost, airport_taxi_cost
+        
 def get_current_budget():
     """Get current budget information with error handling (Requirement 1)"""
     conn = None
@@ -837,113 +838,244 @@ def update_budget(amount):
         if conn:
             conn.close()
 
-def get_current_budget():
-    """Get current budget information with error handling (Requirement 1)"""
+def budget_analytics():
+    """Budget analytics dashboard - FIXED with better error handling (Requirement 1)"""
+    if st.session_state.role not in ["Head of Administration", "admin"]:
+        st.warning("Access denied")
+        return
+    
+    st.markdown('<h1 class="sub-header">Budget Analytics</h1>', unsafe_allow_html=True)
+    
     conn = None
     try:
         conn = sqlite3.connect('travel_app.db')
-        current_year = datetime.datetime.now().year
         
-        # Check if budget record exists
-        c = conn.cursor()
-        c.execute("SELECT * FROM budget WHERE year = ?", (current_year,))
-        budget_record = c.fetchone()
+        # Get budget data
+        budget = get_current_budget()
         
-        if budget_record:
-            # Convert to dictionary for easier access
-            columns = ['id', 'year', 'total_budget', 'utilized_budget', 'balance', 'last_updated']
-            budget = dict(zip(columns, budget_record))
-        else:
-            # Create budget record if it doesn't exist
-            c.execute('''INSERT INTO budget (year, total_budget, utilized_budget, balance)
-                         VALUES (?, ?, 0, ?)''', 
-                     (current_year, ANNUAL_BUDGET, ANNUAL_BUDGET))
-            conn.commit()
+        # Calculate utilization
+        utilization = (budget['utilized_budget'] / budget['total_budget']) * 100 if budget['total_budget'] > 0 else 0
+        
+        # Summary cards
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.markdown(f"""
+            <div class="metric-card">
+                <h3 style="color: #D32F2F;">₦{budget['total_budget']:,.0f}</h3>
+                <p style="color: #616161;">Total Budget (Approved)</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown(f"""
+            <div class="metric-card">
+                <h3 style="color: #4CAF50;">₦{budget['utilized_budget']:,.0f}</h3>
+                <p style="color: #616161;">YTD Actual (Paid)</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col3:
+            st.markdown(f"""
+            <div class="metric-card">
+                <h3 style="color: #2196F3;">₦{budget['balance']:,.0f}</h3>
+                <p style="color: #616161;">Budget Balance (Remaining)</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col4:
+            st.markdown(f"""
+            <div class="metric-card">
+                <h3 style="color: {'#4CAF50' if utilization < 80 else '#F44336'};">{utilization:.1f}%</h3>
+                <p style="color: #616161;">Utilization Rate</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        # Detailed analytics
+        col5, col6 = st.columns(2)
+        
+        with col5:
+            st.markdown("### Monthly Expenditure")
+            # Monthly expenditure query
+            monthly_query = """
+                SELECT 
+                    strftime('%Y-%m', tc.payment_date) as month,
+                    COUNT(DISTINCT tr.id) as request_count,
+                    SUM(tc.total_cost) as monthly_expense
+                FROM travel_costs tc
+                JOIN travel_requests tr ON tc.request_id = tr.id
+                WHERE tc.payment_status = 'paid' 
+                  AND tc.total_cost IS NOT NULL
+                  AND tc.payment_date IS NOT NULL
+                GROUP BY strftime('%Y-%m', tc.payment_date)
+                ORDER BY month DESC
+                LIMIT 12
+            """
+            monthly_data = pd.read_sql(monthly_query, conn)
             
-            # Return default budget
-            budget = {
-                'id': None,
-                'year': current_year,
-                'total_budget': ANNUAL_BUDGET,
-                'utilized_budget': 0,
-                'balance': ANNUAL_BUDGET,
-                'last_updated': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            }
+            if not monthly_data.empty:
+                fig1 = px.bar(monthly_data, x='month', y='monthly_expense',
+                             title="Monthly Expenditure (Last 12 Months)",
+                             color='monthly_expense',
+                             labels={'monthly_expense': 'Amount (₦)', 'month': 'Month'},
+                             text='request_count')
+                fig1.update_traces(texttemplate='%{text} requests', textposition='outside')
+                st.plotly_chart(fig1, use_container_width=True)
+            else:
+                st.info("No expenditure data available")
         
-        # Also calculate utilized budget from paid payments to ensure accuracy
-        c.execute('''SELECT SUM(total_cost) as total_paid 
-                     FROM travel_costs 
-                     WHERE payment_status = 'paid' 
-                     AND strftime('%Y', payment_date) = ?''', 
-                  (str(current_year),))
-        paid_result = c.fetchone()
-        if paid_result and paid_result[0]:
-            paid_amount = paid_result[0]
+        with col6:
+            st.markdown("### Department-wise Expenditure")
+            # Department-wise expenditure query
+            dept_query = """
+                SELECT 
+                    u.department,
+                    COUNT(DISTINCT tr.id) as request_count,
+                    SUM(tc.total_cost) as dept_expense
+                FROM travel_costs tc
+                JOIN travel_requests tr ON tc.request_id = tr.id
+                JOIN users u ON tr.user_id = u.id
+                WHERE tc.payment_status = 'paid'
+                  AND tc.total_cost IS NOT NULL
+                GROUP BY u.department
+                HAVING dept_expense > 0
+                ORDER BY dept_expense DESC
+            """
+            dept_data = pd.read_sql(dept_query, conn)
             
-            # If paid_amount doesn't match utilized_budget, update it
-            if paid_amount != budget['utilized_budget']:
-                budget['utilized_budget'] = paid_amount
-                budget['balance'] = budget['total_budget'] - paid_amount
+            if not dept_data.empty:
+                fig2 = px.pie(dept_data, values='dept_expense', names='department',
+                             title="Expenditure by Department",
+                             hole=0.3)
+                fig2.update_traces(textposition='inside', textinfo='percent+label')
+                st.plotly_chart(fig2, use_container_width=True)
                 
-                # Update database to reflect correct values
-                c.execute('''UPDATE budget 
-                             SET utilized_budget = ?, balance = ?
-                             WHERE year = ?''',
-                         (paid_amount, budget['total_budget'] - paid_amount, current_year))
-                conn.commit()
+                # Show department breakdown table
+                with st.expander("View Department Breakdown"):
+                    dept_data['dept_expense'] = dept_data['dept_expense'].apply(lambda x: f"₦{x:,.2f}")
+                    st.dataframe(dept_data, use_container_width=True)
+            else:
+                st.info("No department expenditure data available")
         
-        return budget
-    except Exception as e:
-        st.error(f"Error getting budget: {str(e)}")
-        # Return default budget as fallback
-        return {
-            'year': datetime.datetime.now().year,
-            'total_budget': ANNUAL_BUDGET,
-            'utilized_budget': 0,
-            'balance': ANNUAL_BUDGET
-        }
-    finally:
-        if conn:
-            conn.close()
-
-def update_budget(amount):
-    """Update budget after payment with improved error handling (Requirement 1)"""
-    conn = None
-    try:
-        conn = sqlite3.connect('travel_app.db')
-        c = conn.cursor()
-        current_year = datetime.datetime.now().year
+        st.markdown("---")
         
-        # First check if budget record exists
-        c.execute("SELECT * FROM budget WHERE year = ?", (current_year,))
-        budget = c.fetchone()
+        # Detailed transaction table
+        st.markdown("### Detailed Transactions")
         
-        if budget:
-            # Update existing budget - utilized_budget increases, balance decreases
-            c.execute('''UPDATE budget 
-                         SET utilized_budget = utilized_budget + ?, 
-                             balance = balance - ?,
-                             last_updated = CURRENT_TIMESTAMP
-                         WHERE year = ?''', 
-                     (amount, amount, current_year))
+        # Date range filter
+        col_start, col_end = st.columns(2)
+        with col_start:
+            start_date = st.date_input("Start Date", value=date.today() - timedelta(days=30))
+        with col_end:
+            end_date = st.date_input("End Date", value=date.today())
+        
+        # Transactions query with date filter
+        transactions_query = """
+            SELECT 
+                tc.id as Transaction_ID,
+                u.full_name as Employee_Name,
+                u.department as Department,
+                tr.destination as Destination,
+                tr.travel_type as Travel_Type,
+                tc.total_cost as Amount,
+                tc.payment_status as Payment_Status,
+                tc.payment_date as Payment_Date,
+                tc.payment_approved_by as Approved_By
+            FROM travel_costs tc
+            JOIN travel_requests tr ON tc.request_id = tr.id
+            JOIN users u ON tr.user_id = u.id
+            WHERE tc.total_cost IS NOT NULL
+              AND date(tc.created_at) BETWEEN date(?) AND date(?)
+            ORDER BY tc.created_at DESC
+        """
+        
+        transactions = pd.read_sql(transactions_query, conn, 
+                                  params=(start_date.strftime('%Y-%m-%d'), 
+                                         end_date.strftime('%Y-%m-%d')))
+        
+        if not transactions.empty:
+            # Summary stats
+            total_amount = transactions['Amount'].sum()
+            avg_amount = transactions['Amount'].mean()
+            transaction_count = len(transactions)
+            
+            col7, col8, col9 = st.columns(3)
+            with col7:
+                st.metric("Total Transactions", f"{transaction_count}")
+            with col8:
+                st.metric("Total Amount", f"₦{total_amount:,.2f}")
+            with col9:
+                st.metric("Average Amount", f"₦{avg_amount:,.2f}")
+            
+            # Export button
+            if st.button("📊 Export to Excel"):
+                # Convert to Excel
+                output = io.BytesIO()
+                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                    transactions.to_excel(writer, index=False, sheet_name='Budget Analytics')
+                
+                st.download_button(
+                    label="Download Excel",
+                    data=output.getvalue(),
+                    file_name=f"budget_analytics_{date.today()}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+            
+            # Format Amount column for display
+            display_transactions = transactions.copy()
+            display_transactions['Amount'] = display_transactions['Amount'].apply(lambda x: f"₦{x:,.2f}")
+            st.dataframe(display_transactions, use_container_width=True)
         else:
-            # Create budget record if it doesn't exist
-            c.execute('''INSERT INTO budget (year, total_budget, utilized_budget, balance)
-                         VALUES (?, ?, ?, ?)''',
-                     (current_year, ANNUAL_BUDGET, amount, ANNUAL_BUDGET - amount))
+            st.info(f"No transactions found between {start_date} and {end_date}")
         
-        conn.commit()
+        # Budget projection
+        st.markdown("---")
+        st.markdown("### Budget Projection")
         
-        # Verify the update
-        c.execute("SELECT utilized_budget, balance FROM budget WHERE year = ?", (current_year,))
-        updated = c.fetchone()
-        if updated:
-            st.success(f"Budget updated: Utilized = NGN{updated[0]:,.0f}, Balance = NGN{updated[1]:,.0f}")
+        # Calculate average monthly spend
+        monthly_avg_query = """
+            SELECT AVG(monthly_total) as avg_monthly_spend
+            FROM (
+                SELECT strftime('%Y-%m', tc.payment_date) as month,
+                       SUM(tc.total_cost) as monthly_total
+                FROM travel_costs tc
+                WHERE tc.payment_status = 'paid'
+                  AND tc.total_cost IS NOT NULL
+                  AND tc.payment_date IS NOT NULL
+                GROUP BY strftime('%Y-%m', tc.payment_date)
+            )
+        """
+        avg_result = pd.read_sql(monthly_avg_query, conn)
+        avg_monthly_spend = avg_result.iloc[0]['avg_monthly_spend'] if not avg_result.empty and avg_result.iloc[0]['avg_monthly_spend'] else 0
         
-        return True
+        if avg_monthly_spend and avg_monthly_spend > 0:
+            months_remaining = 12 - datetime.datetime.now().month
+            projected_spend = avg_monthly_spend * months_remaining
+            projected_total = budget['utilized_budget'] + projected_spend
+            projected_balance = budget['total_budget'] - projected_total
+            
+            col10, col11, col12 = st.columns(3)
+            with col10:
+                st.metric("Average Monthly Spend", f"₦{avg_monthly_spend:,.2f}")
+            with col11:
+                st.metric("Projected Year-End", f"₦{projected_total:,.2f}")
+            with col12:
+                st.metric("Projected Balance", f"₦{projected_balance:,.2f}")
+            
+            # Projection warning
+            if projected_total > budget['total_budget']:
+                st.warning(f"⚠️ Projected year-end spend (₦{projected_total:,.2f}) exceeds budget by ₦{projected_total - budget['total_budget']:,.2f}")
+            elif projected_balance < budget['total_budget'] * 0.1:
+                st.warning(f"⚠️ Projected year-end balance (₦{projected_balance:,.2f}) is less than 10% of budget")
+            else:
+                st.success(f"✅ Projected year-end spend is within budget")
+    
     except Exception as e:
-        st.error(f"Error updating budget: {str(e)}")
-        return False
+        st.error(f"Error loading budget analytics: {str(e)}")
+        import traceback
+        st.error(traceback.format_exc())
     finally:
         if conn:
             conn.close()
@@ -3438,5 +3570,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
