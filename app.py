@@ -837,9 +837,8 @@ def update_budget(amount):
     finally:
         if conn:
             conn.close()
-
 def budget_analytics():
-    """Budget analytics dashboard - FIXED with better error handling (Requirement 1)"""
+    """Budget analytics dashboard - Fixed with fallback for Excel export"""
     if st.session_state.role not in ["Head of Administration", "admin"]:
         st.warning("Access denied")
         return
@@ -863,7 +862,7 @@ def budget_analytics():
             st.markdown(f"""
             <div class="metric-card">
                 <h3 style="color: #D32F2F;">₦{budget['total_budget']:,.0f}</h3>
-                <p style="color: #616161;">Total Budget (Approved)</p>
+                <p style="color: #616161;">Total Budget</p>
             </div>
             """, unsafe_allow_html=True)
         
@@ -871,7 +870,7 @@ def budget_analytics():
             st.markdown(f"""
             <div class="metric-card">
                 <h3 style="color: #4CAF50;">₦{budget['utilized_budget']:,.0f}</h3>
-                <p style="color: #616161;">YTD Actual (Paid)</p>
+                <p style="color: #616161;">YTD Actual</p>
             </div>
             """, unsafe_allow_html=True)
         
@@ -879,7 +878,7 @@ def budget_analytics():
             st.markdown(f"""
             <div class="metric-card">
                 <h3 style="color: #2196F3;">₦{budget['balance']:,.0f}</h3>
-                <p style="color: #616161;">Budget Balance (Remaining)</p>
+                <p style="color: #616161;">Budget Balance</p>
             </div>
             """, unsafe_allow_html=True)
         
@@ -901,15 +900,14 @@ def budget_analytics():
             # Monthly expenditure query
             monthly_query = """
                 SELECT 
-                    strftime('%Y-%m', tc.payment_date) as month,
+                    strftime('%Y-%m', tc.created_at) as month,
                     COUNT(DISTINCT tr.id) as request_count,
                     SUM(tc.total_cost) as monthly_expense
                 FROM travel_costs tc
                 JOIN travel_requests tr ON tc.request_id = tr.id
                 WHERE tc.payment_status = 'paid' 
                   AND tc.total_cost IS NOT NULL
-                  AND tc.payment_date IS NOT NULL
-                GROUP BY strftime('%Y-%m', tc.payment_date)
+                GROUP BY strftime('%Y-%m', tc.created_at)
                 ORDER BY month DESC
                 LIMIT 12
             """
@@ -1009,18 +1007,15 @@ def budget_analytics():
             with col9:
                 st.metric("Average Amount", f"₦{avg_amount:,.2f}")
             
-            # Export button
-            if st.button("📊 Export to Excel"):
-                # Convert to Excel
-                output = io.BytesIO()
-                with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                    transactions.to_excel(writer, index=False, sheet_name='Budget Analytics')
-                
+            # FIXED: Export button with fallback
+            if st.button("📊 Export to CSV (Excel alternative)"):
+                # Convert to CSV instead of Excel
+                csv = transactions.to_csv(index=False)
                 st.download_button(
-                    label="Download Excel",
-                    data=output.getvalue(),
-                    file_name=f"budget_analytics_{date.today()}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    label="Download CSV",
+                    data=csv,
+                    file_name=f"budget_analytics_{date.today()}.csv",
+                    mime="text/csv"
                 )
             
             # Format Amount column for display
@@ -1038,17 +1033,16 @@ def budget_analytics():
         monthly_avg_query = """
             SELECT AVG(monthly_total) as avg_monthly_spend
             FROM (
-                SELECT strftime('%Y-%m', tc.payment_date) as month,
+                SELECT strftime('%Y-%m', tc.created_at) as month,
                        SUM(tc.total_cost) as monthly_total
                 FROM travel_costs tc
                 WHERE tc.payment_status = 'paid'
                   AND tc.total_cost IS NOT NULL
-                  AND tc.payment_date IS NOT NULL
-                GROUP BY strftime('%Y-%m', tc.payment_date)
+                GROUP BY strftime('%Y-%m', tc.created_at)
             )
         """
         avg_result = pd.read_sql(monthly_avg_query, conn)
-        avg_monthly_spend = avg_result.iloc[0]['avg_monthly_spend'] if not avg_result.empty and avg_result.iloc[0]['avg_monthly_spend'] else 0
+        avg_monthly_spend = avg_result.iloc[0]['avg_monthly_spend'] if not avg_result.empty else 0
         
         if avg_monthly_spend and avg_monthly_spend > 0:
             months_remaining = 12 - datetime.datetime.now().month
@@ -3570,6 +3564,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
