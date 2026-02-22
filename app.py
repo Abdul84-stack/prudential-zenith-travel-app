@@ -274,46 +274,78 @@ ROLES = ["Employee", "Head of Department", "Head of Administration", "Chief Comm
          "Chief Agency Officer", "Chief Compliance Officer", "Chief Risk Officer", 
          "CFO/ED", "ED", "MD", "Payables Officer", "admin"]
 
-# UPDATED: Nigerian states with more cities
+# Marital Status options
+MARITAL_STATUS = ["Single", "Married", "Divorced", "Widowed", "Separated"]
+
+# UPDATED: Nigerian states with comprehensive cities (Requirement 3)
 NIGERIAN_STATES = {
-    "Abia": ["Aba", "Umuahia", "Arochukwu", "Ohafia", "Bende", "Isuikwuato", "Abiriba"],
-    "Adamawa": ["Yola", "Mubi", "Jimeta", "Ganye", "Numan", "Mayo-Belwa", "Michika", "Gombi"],
-    "Akwa Ibom": ["Uyo", "Eket", "Ikot Ekpene", "Oron", "Ikot Abasi", "Abak", "Etinan", "Essien Udim"],
-    "Anambra": ["Awka", "Onitsha", "Nnewi", "Aguata", "Ogidi", "Ekwulobia", "Ozubulu", "Oba"],
-    "Bauchi": ["Bauchi", "Azare", "Jama'are", "Katagum", "Misau", "Ningi", "Darazo", "Gamawa"],
-    "Bayelsa": ["Yenagoa", "Brass", "Ogbia", "Sagbama", "Ekeremor", "Nembe", "Amassoma", "Odi"],
-    "Benue": ["Makurdi", "Gboko", "Otukpo", "Katsina-Ala", "Vandeikya", "Adikpo", "Aliade", "Oju"],
-    "Borno": ["Maiduguri", "Bama", "Dikwa", "Gwoza", "Monguno", "Biu", "Konduga", "Damboa"],
-    "Cross River": ["Calabar", "Ugep", "Ogoja", "Obudu", "Ikom", "Akamkpa", "Obubra", "Odukpani"],
-    "Delta": ["Asaba", "Warri", "Sapele", "Ughelli", "Burutu", "Agbor", "Ozoro", "Kwale"],
-    "Ebonyi": ["Abakaliki", "Afikpo", "Onueke", "Edda", "Ishielu", "Ezza", "Ikwo", "Ohaozara"],
-    "Edo": ["Benin City", "Auchi", "Ekpoma", "Igueben", "Uromi", "Irrua", "Oredo", "Ubiaja"],
-    "Ekiti": ["Ado-Ekiti", "Ikere", "Ijun-Ekiti", "Oye", "Ikole", "Efon", "Ise", "Emure"],
-    "Enugu": ["Enugu", "Nsukka", "Agbani", "Udi", "Oji-River", "Awgu", "Enugu Ezike", "Ezeagu"],
-    "FCT": ["Abuja", "Gwagwalada", "Kuje", "Bwari", "Kwali", "Abaji", "Karu", "Kubwa"],
-    "Gombe": ["Gombe", "Kaltungo", "Bajoga", "Dukku", "Nafada", "Billiri", "Akko", "Yamaltu"],
-    "Imo": ["Owerri", "Orlu", "Okigwe", "Mgbidi", "Oguta", "Mbaise", "Ohaji", "Orodo"],
-    "Jigawa": ["Dutse", "Hadejia", "Gumel", "Kazaure", "Ringim", "Birnin Kudu", "Babura", "Garki"],
-    "Kaduna": ["Kaduna", "Zaria", "Kafanchan", "Saminaka", "Makarf", "Birnin Gwari", "Jema'a", "Ikara"],
-    "Kano": ["Kano", "Wudil", "Gaya", "Dawakin Kudu", "Bichi", "Rano", "Kura", "Karaye"],
-    "Katsina": ["Katsina", "Funtua", "Daura", "Malumfashi", "Kankia", "Dutsinma", "Musawa", "Mani"],
-    "Kebbi": ["Birnin Kebbi", "Argungu", "Yelwa", "Zuru", "Gwandu", "Jega", "Bagudo", "Koko"],
-    "Kogi": ["Lokoja", "Okene", "Idah", "Kabba", "Ankpa", "Dekina", "Ajaokuta", "Ogaminana"],
-    "Kwara": ["Ilorin", "Offa", "Omu-Aran", "Patigi", "Lafiagi", "Jebba", "Kaiama", "Oke-Ode"],
-    "Lagos": ["Lagos Island", "Ikeja", "Badagry", "Epe", "Ikorodu", "Ojo", "Alimosho", "Mushin"],
-    "Nasarawa": ["Lafia", "Keffi", "Akwanga", "Nasarawa", "Karu", "Doma", "Toto", "Wamba"],
-    "Niger": ["Minna", "Suleja", "Bida", "Kontagora", "Lapai", "Agaie", "Mokwa", "Wushishi"],
-    "Ogun": ["Abeokuta", "Sagamu", "Ijebu-Ode", "Ilaro", "Aiyetoro", "Ado-Odo", "Otta", "Ijebu-Igbo"],
-    "Ondo": ["Akure", "Ondo City", "Owo", "Okitipupa", "Ore", "Oka", "Ifon", "Idanre"],
-    "Osun": ["Osogbo", "Ile-Ife", "Ilesa", "Iwo", "Ede", "Ikirun", "Ejigbo", "Iragbiji"],
-    "Oyo": ["Ibadan", "Ogbomosho", "Oyo", "Iseyin", "Saki", "Okeho", "Igbo-Ora", "Kishi"],
-    "Plateau": ["Jos", "Bukuru", "Pankshin", "Shendam", "Langtang", "Barkin Ladi", "Mangu", "Wase"],
-    "Rivers": ["Port Harcourt", "Bonny", "Degema", "Okrika", "Oyigbo", "Ahoada", "Bori", "Omoku"],
-    "Sokoto": ["Sokoto", "Tambuwal", "Wurno", "Gwadabawa", "Illela", "Binji", "Goronyo", "Isa"],
-    "Taraba": ["Jalingo", "Bali", "Takum", "Wukari", "Serti", "Mutum Biyu", "Ibi", "Lau"],
-    "Yobe": ["Damaturu", "Potiskum", "Gashua", "Geidam", "Nguru", "Bade", "Fika", "Gujba"],
-    "Zamfara": ["Gusau", "Kaura Namoda", "Talata Mafara", "Anka", "Bukkuyum", "Maru", "Bungudu", "Tsafe"]
+    "Abia": ["Aba", "Umuahia", "Arochukwu", "Ohafia", "Bende", "Isuikwuato", "Abiriba", "Mbawsi", "Amasiri", "Item", "Ovim", "Ozu Abam", "Amaekpu", "Igbere", "Nkporo", "Abam", "Ohafor", "Uzuakoli", "Osisioma", "Obingwa", "Ugwuoba"],
+    "Adamawa": ["Yola", "Mubi", "Jimeta", "Ganye", "Numan", "Mayo-Belwa", "Michika", "Gombi", "Hong", "Song", "Shelleng", "Guyuk", "Lamurde", "Demsa", "Fufore", "Madagali", "Maiha", "Jada", "Toungo", "Kojoli", "Bachure", "Bazza"],
+    "Akwa Ibom": ["Uyo", "Eket", "Ikot Ekpene", "Oron", "Ikot Abasi", "Abak", "Etinan", "Essien Udim", "Mkpat Enin", "Okobo", "Udung Uko", "Urue Offong", "Nsit Ibom", "Nsit Ubium", "Ibesikpo Asutan", "Oruk Anam", "Eastern Obolo", "Ibeno", "Mbo", "Ukanafun", "Onna", "Esit Eket"],
+    "Anambra": ["Awka", "Onitsha", "Nnewi", "Aguata", "Ogidi", "Ekwulobia", "Ozubulu", "Oba", "Oko", "Nkpor", "Obosi", "Umunze", "Alor", "Ihiala", "Ukpo", "Abagana", "Enugwu Ukwu", "Nawfia", "Awkuzu", "Umuoji", "Nimo", "Agulu"],
+    "Bauchi": ["Bauchi", "Azare", "Jama'are", "Katagum", "Misau", "Ningi", "Darazo", "Gamawa", "Dambam", "Giade", "Itas", "Shira", "Tafawa Balewa", "Bogoro", "Dass", "Toro", "Warji", "Zaki", "Ganjuwa", "Kirfi", "Alkaleri", "Burra"],
+    "Bayelsa": ["Yenagoa", "Brass", "Ogbia", "Sagbama", "Ekeremor", "Nembe", "Amassoma", "Odi", "Kaiama", "Okpoama", "Twon-Brass", "Akassa", "Agudama", "Ekeki", "Opolo", "Swali", "Okutukutu", "Akenfa", "Amarata", "Igbogene", "Ebikeme", "Ogu"],
+    "Benue": ["Makurdi", "Gboko", "Otukpo", "Katsina-Ala", "Vandeikya", "Adikpo", "Aliade", "Oju", "Okpoga", "Ushongo", "Lessel", "Mkar", "Yandev", "Zaki Biam", "Buruku", "Gbajimba", "Tse-Agberagba", "Ugba", "Ukum", "Logo", "Kwande", "Konshisha"],
+    "Borno": ["Maiduguri", "Bama", "Dikwa", "Gwoza", "Monguno", "Biu", "Konduga", "Damboa", "Askira", "Uba", "Chibok", "Kwaya Kusar", "Shani", "Kaga", "Kukawa", "Marte", "Gubio", "Guzamala", "Mobbar", "Abadam", "Ngala", "Kala Balge"],
+    "Cross River": ["Calabar", "Ugep", "Ogoja", "Obudu", "Ikom", "Akamkpa", "Obubra", "Odukpani", "Akpabuyo", "Bakassi", "Biase", "Abi", "Yala", "Boki", "Etung", "Bekwarra", "Obanliku", "Odukpani", "Akamkpa", "Calabar South", "Ikpai", "Uwet"],
+    "Delta": ["Asaba", "Warri", "Sapele", "Ughelli", "Burutu", "Agbor", "Ozoro", "Kwale", "Obiaruku", "Abraka", "Oleh", "Patani", "Bomadi", "Koko", "Ogwashi-Uku", "Issele-Uku", "Ubulu-Uku", "Illah", "Igbodo", "Ebu", "Oghara", "Effurun"],
+    "Ebonyi": ["Abakaliki", "Afikpo", "Onueke", "Edda", "Ishielu", "Ezza", "Ikwo", "Ohaozara", "Uburu", "Okposi", "Amasiri", "Onicha", "Ivo", "Effium", "Nkalagu", "Isu", "Onyege", "Agbaja", "Ndiegu", "Okoffia", "Ezzamgbo", "Iboko"],
+    "Edo": ["Benin City", "Auchi", "Ekpoma", "Igueben", "Uromi", "Irrua", "Oredo", "Ubiaja", "Abudu", "Igarra", "Sabongida-Ora", "Agenebode", "Okpella", "Fugar", "Ewu", "Uzebba", "Igbanke", "Ogwa", "Ehor", "Ohosu", "Afuze", "Iuleha"],
+    "Ekiti": ["Ado-Ekiti", "Ikere", "Ijero-Ekiti", "Oye", "Ikole", "Efon", "Ise", "Emure", "Aramoko", "Ipoti", "Omuo", "Otun", "Ode", "Ilave", "Igbemo", "Iworoko", "Are", "Ayede", "Ogotun", "Usi", "Itapa", "Ilupeju"],
+    "Enugu": ["Enugu", "Nsukka", "Agbani", "Udi", "Oji-River", "Awgu", "Enugu Ezike", "Ezeagu", "Aku", "Obolo", "Obollo-Afor", "Ikem", "Amagunze", "Eha-Amufu", "Mburubu", "Ogbede", "Ukehe", "Nike", "Abor", "Ihe", "Ugwuoba", "Owelli"],
+    "FCT": ["Abuja", "Gwagwalada", "Kuje", "Bwari", "Kwali", "Abaji", "Karu", "Kubwa", "Lugbe", "Gwarimpa", "Wuse", "Maitama", "Asokoro", "Jabi", "Utako", "Garki", "Nyanya", "Karshi", "Dutse", "Bwari", "Kurudu", "Kado"],
+    "Gombe": ["Gombe", "Kaltungo", "Bajoga", "Dukku", "Nafada", "Billiri", "Akko", "Yamaltu", "Deba", "Pindiga", "Dadinkowa", "Kumo", "Hinna", "Bara", "Dukul", "Liji", "Jekadafari", "Pantami", "Arawa", "Tumu", "Gona", "Kwami"],
+    "Imo": ["Owerri", "Orlu", "Okigwe", "Mgbidi", "Oguta", "Mbaise", "Ohaji", "Orodo", "Umuahia", "Nkwerre", "Awo-Omamma", "Osu", "Owerrinta", "Ihite", "Orodo", "Amaigbo", "Arondizuogu", "Aboh", "Nnenasa", "Eziama", "Umuguma", "Ihiagwa"],
+    "Jigawa": ["Dutse", "Hadejia", "Gumel", "Kazaure", "Ringim", "Birnin Kudu", "Babura", "Garki", "Miga", "Maigatari", "Gwaram", "Buji", "Jahun", "Gwiwa", "Yankwashi", "Auyo", "Kafin Hausa", "Kiri Kasama", "Taura", "Sule Tankarkar", "Guri", "Kaugama"],
+    "Kaduna": ["Kaduna", "Zaria", "Kafanchan", "Saminaka", "Makarf", "Birnin Gwari", "Jema'a", "Ikara", "Kagarko", "Kachia", "Soba", "Giwa", "Kubau", "Kudan", "Lere", "Makarfi", "Sabon Gari", "Zangon Kataf", "Kaura", "Jaba", "Chikun", "Igabi"],
+    "Kano": ["Kano", "Wudil", "Gaya", "Dawakin Kudu", "Bichi", "Rano", "Kura", "Karaye", "Gezawa", "Minjibir", "Dambatta", "Makoda", "Garko", "Ajingi", "Albasu", "Bagwai", "Bebeji", "Dala", "Dawakin Tofa", "Doguwa", "Fagge", "Gabasawa"],
+    "Katsina": ["Katsina", "Funtua", "Daura", "Malumfashi", "Kankia", "Dutsinma", "Musawa", "Mani", "Bakori", "Danja", "Faskari", "Jibia", "Kaita", "Batagarawa", "Batsari", "Baure", "Bindawa", "Charanchi", "Dan Musa", "Ingawa", "Kafur", "Kankara"],
+    "Kebbi": ["Birnin Kebbi", "Argungu", "Yelwa", "Zuru", "Gwandu", "Jega", "Bagudo", "Koko", "Danko", "Sakaba", "Fakai", "Ngaski", "Shanga", "Arewa", "Bunza", "Kalgo", "Maiyama", "Suru", "Augie", "Wasagu", "Dakingari", "Mahuta"],
+    "Kogi": ["Lokoja", "Okene", "Idah", "Kabba", "Ankpa", "Dekina", "Ajaokuta", "Ogaminana", "Anyigba", "Ogori", "Isanlu", "Egbe", "Iyamoye", "Mopa", "Odo-Ere", "Ogugu", "Olamaboro", "Olowa", "Okenne", "Ayangba", "Koton-Karfe", "Gegu"],
+    "Kwara": ["Ilorin", "Offa", "Omu-Aran", "Patigi", "Lafiagi", "Jebba", "Kaiama", "Oke-Ode", "Ajasse Ipo", "Oro", "Araromi", "Bode Saadu", "Gure", "Idofian", "Igbaja", "Ila", "Ilorin South", "Malete", "Oke Onigbin", "Oko", "Osi", "Share"],
+    "Lagos": ["Lagos Island", "Ikeja", "Badagry", "Epe", "Ikorodu", "Ojo", "Alimosho", "Mushin", "Surulere", "Apapa", "Ajeromi", "Amuwo Odofin", "Agege", "Ifako-Ijaiye", "Kosofe", "Lagos Mainland", "Somolu", "Oshodi", "Isolo", "Victoria Island", "Lekki", "Ajegunle"],
+    "Nasarawa": ["Lafia", "Keffi", "Akwanga", "Nasarawa", "Karu", "Doma", "Toto", "Wamba", "Kokona", "Awe", "Obi", "Eggon", "Keana", "Nasarawa Eggon", "Gudi", "Agwada", "Assakio", "Azara", "Daddare", "Gidan Waya", "Udegi", "Riri"],
+    "Niger": ["Minna", "Suleja", "Bida", "Kontagora", "Lapai", "Agaie", "Mokwa", "Wushishi", "Rijau", "Magama", "Mariga", "Shiroro", "Paikoro", "Gurara", "Chanchaga", "Bosso", "Katcha", "Edati", "Lavun", "Gbako", "Agwara", "Borgu"],
+    "Ogun": ["Abeokuta", "Sagamu", "Ijebu-Ode", "Ilaro", "Aiyetoro", "Ado-Odo", "Otta", "Ijebu-Igbo", "Owode", "Ifo", "Agbara", "Ikenne", "Imeko", "Ota", "Odogbolu", "Ewekoro", "Obafemi", "Odeda", "Remo North", "Ipokia", "Ijebu North", "Ogun Waterside"],
+    "Ondo": ["Akure", "Ondo City", "Owo", "Okitipupa", "Ore", "Oka", "Ifon", "Idanre", "Igbokoda", "Ikare", "Oba Ile", "Isua", "Ese Odo", "Irele", "Odigbo", "Akoko", "Ose", "Oke Igbo", "Ayede", "Ilara", "Iju", "Oda"],
+    "Osun": ["Osogbo", "Ile-Ife", "Ilesa", "Iwo", "Ede", "Ikirun", "Ejigbo", "Iragbiji", "Ikire", "Gbongan", "Modakeke", "Apomu", "Ipetumodu", "Otan-Ayegbaju", "Ode-Omu", "Ijebu-Jesa", "Esa-Oke", "Okuku", "Oluponna", "Ila Orangun", "Iree", "Esa-Odo"],
+    "Oyo": ["Ibadan", "Ogbomosho", "Oyo", "Iseyin", "Saki", "Okeho", "Igbo-Ora", "Kishi", "Koso", "Fiditi", "Awe", "Lalupon", "Moniya", "Eruwa", "Lanlate", "Igbeti", "Sepeteri", "Iganna", "Tede", "Agbang", "Oje", "Orelope"],
+    "Plateau": ["Jos", "Bukuru", "Pankshin", "Shendam", "Langtang", "Barkin Ladi", "Mangu", "Wase", "Bokkos", "Kanke", "Kanam", "Riyom", "Qua'an Pan", "Mikang", "Bassa", "Jos East", "Jos North", "Jos South", "Langtang North", "Langtang South", "Pyem", "Ron"],
+    "Rivers": ["Port Harcourt", "Bonny", "Degema", "Okrika", "Oyigbo", "Ahoada", "Bori", "Omoku", "Elele", "Emohua", "Ikwerre", "Khana", "Gokana", "Tai", "Opobo", "Andoni", "Asari-Toru", "Akuku-Toru", "Abua-Odual", "Ogu Bolo", "Eleme", "Obio-Akpor"],
+    "Sokoto": ["Sokoto", "Tambuwal", "Wurno", "Gwadabawa", "Illela", "Binji", "Goronyo", "Isa", "Rabah", "Sabon Birni", "Shagari", "Silame", "Tangaza", "Tureta", "Wamako", "Bodinga", "Dange Shuni", "Gada", "Gudu", "Kware", "Kebbe", "Yabo"],
+    "Taraba": ["Jalingo", "Bali", "Takum", "Wukari", "Serti", "Mutum Biyu", "Ibi", "Lau", "Gembu", "Zing", "Yorro", "Donga", "Ussa", "Kurmi", "Gassol", "Ardo Kola", "Karim Lamido", "Lau", "Sardauna", "Bali", "Gashaka", "Poli"],
+    "Yobe": ["Damaturu", "Potiskum", "Gashua", "Geidam", "Nguru", "Bade", "Fika", "Gujba", "Gulani", "Tarmuwa", "Yunusari", "Bursari", "Karasuwa", "Machina", "Nangere", "Yusufari", "Jakusko", "Fune", "Barde", "Borsari", "Giedam", "Kanamma"],
+    "Zamfara": ["Gusau", "Kaura Namoda", "Talata Mafara", "Anka", "Bukkuyum", "Maru", "Bungudu", "Tsafe", "Shinkafi", "Zurmi", "Bakura", "Maradun", "Gummi", "Birnin Magaji", "Kaura", "Kiyawa", "Mada", "Moriki", "Ruwan Bore", "Wanke", "Gusau", "Kaura"]
 }
+
+# UPDATED: Complete list of all countries (Requirement 4)
+COUNTRIES = [
+    "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia", 
+    "Australia", "Austria", "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", 
+    "Belgium", "Belize", "Benin", "Bhutan", "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil", 
+    "Brunei", "Bulgaria", "Burkina Faso", "Burundi", "Cabo Verde", "Cambodia", "Cameroon", "Canada", 
+    "Central African Republic", "Chad", "Chile", "China", "Colombia", "Comoros", "Congo", "Costa Rica", 
+    "Côte d'Ivoire", "Croatia", "Cuba", "Cyprus", "Czech Republic", "Denmark", "Djibouti", "Dominica", 
+    "Dominican Republic", "Ecuador", "Egypt", "El Salvador", "Equatorial Guinea", "Eritrea", "Estonia", 
+    "Eswatini", "Ethiopia", "Fiji", "Finland", "France", "Gabon", "Gambia", "Georgia", "Germany", "Ghana", 
+    "Greece", "Grenada", "Guatemala", "Guinea", "Guinea-Bissau", "Guyana", "Haiti", "Honduras", "Hungary", 
+    "Iceland", "India", "Indonesia", "Iran", "Iraq", "Ireland", "Israel", "Italy", "Jamaica", "Japan", 
+    "Jordan", "Kazakhstan", "Kenya", "Kiribati", "Korea, North", "Korea, South", "Kosovo", "Kuwait", 
+    "Kyrgyzstan", "Laos", "Latvia", "Lebanon", "Lesotho", "Liberia", "Libya", "Liechtenstein", "Lithuania", 
+    "Luxembourg", "Madagascar", "Malawi", "Malaysia", "Maldives", "Mali", "Malta", "Marshall Islands", 
+    "Mauritania", "Mauritius", "Mexico", "Micronesia", "Moldova", "Monaco", "Mongolia", "Montenegro", 
+    "Morocco", "Mozambique", "Myanmar", "Namibia", "Nauru", "Nepal", "Netherlands", "New Zealand", 
+    "Nicaragua", "Niger", "Nigeria", "North Macedonia", "Norway", "Oman", "Pakistan", "Palau", "Palestine", 
+    "Panama", "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Poland", "Portugal", "Qatar", 
+    "Romania", "Russia", "Rwanda", "Saint Kitts and Nevis", "Saint Lucia", "Saint Vincent and the Grenadines", 
+    "Samoa", "San Marino", "Sao Tome and Principe", "Saudi Arabia", "Senegal", "Serbia", "Seychelles", 
+    "Sierra Leone", "Singapore", "Slovakia", "Slovenia", "Solomon Islands", "Somalia", "South Africa", 
+    "South Sudan", "Spain", "Sri Lanka", "Sudan", "Suriname", "Sweden", "Switzerland", "Syria", "Taiwan", 
+    "Tajikistan", "Tanzania", "Thailand", "Timor-Leste", "Togo", "Tonga", "Trinidad and Tobago", "Tunisia", 
+    "Turkey", "Turkmenistan", "Tuvalu", "Uganda", "Ukraine", "United Arab Emirates", "United Kingdom", 
+    "United States", "Uruguay", "Uzbekistan", "Vanuatu", "Vatican City", "Venezuela", "Vietnam", "Yemen", 
+    "Zambia", "Zimbabwe"
+]
 
 # UPDATED: Local Travel Policy with new rates
 LOCAL_POLICY = {
@@ -328,18 +360,19 @@ LOCAL_POLICY = {
 # UPDATED: International Travel Policy with new rates and exchange rate
 USD_TO_NGN = 1400  # Exchange rate: USD 1 = NGN 1,400
 
+# UPDATED: Airport taxi is one-time, not per day (Requirement 2)
 INTERNATIONAL_POLICY = {
     "MD": {
         "accommodation": 500,
         "feeding": 200,
         "out_of_station": 200,
         "airport_taxi": 250,
-        "total_usd": 1150,  # 500 + 200 + 200 + 250
+        "total_usd": 1150,  # 500 + 200 + 200 + 250 (airport taxi included but note: one-time)
         "total_ngn": 1150 * USD_TO_NGN,
         "accommodation_text": "$500 Per/Night",
         "feeding_text": "$200/Day",
         "out_of_station_text": "$200/Day",
-        "airport_taxi_text": "$250"
+        "airport_taxi_text": "$250 (One-time, round trip)"
     },
     "ED": {
         "accommodation": 200,
@@ -351,7 +384,7 @@ INTERNATIONAL_POLICY = {
         "accommodation_text": "$200/Night",
         "feeding_text": "$150/Day",
         "out_of_station_text": "$150/Day",
-        "airport_taxi_text": "$200"
+        "airport_taxi_text": "$200 (One-time, round trip)"
     },
     "AGM-GM": {
         "accommodation": 150,
@@ -363,7 +396,7 @@ INTERNATIONAL_POLICY = {
         "accommodation_text": "$150/Night",
         "feeding_text": "$100/Day",
         "out_of_station_text": "$100/Day",
-        "airport_taxi_text": "$150"
+        "airport_taxi_text": "$150 (One-time, round trip)"
     },
     "AM-PM": {
         "accommodation": 100,
@@ -375,7 +408,7 @@ INTERNATIONAL_POLICY = {
         "accommodation_text": "$100/Night",
         "feeding_text": "$80/day",
         "out_of_station_text": "$80/Day",
-        "airport_taxi_text": "$100"
+        "airport_taxi_text": "$100 (One-time, round trip)"
     },
     "EA-SO": {
         "accommodation": 100,
@@ -387,7 +420,7 @@ INTERNATIONAL_POLICY = {
         "accommodation_text": "$100/Night",
         "feeding_text": "$50/Day",
         "out_of_station_text": "$60/Day",
-        "airport_taxi_text": "$100"
+        "airport_taxi_text": "$100 (One-time, round trip)"
     }
 }
 
@@ -437,119 +470,12 @@ class PDFReport(FPDF):
         # Use multi_cell with proper encoding
         self.multi_cell(0, 8, value, 0, 1)
 
-def generate_pdf_report(request_id):
-    """Generate PDF report for travel request - FIXED: Unicode handling"""
-    conn = None
-    try:
-        conn = sqlite3.connect('travel_app.db')
-        
-        # Get request details
-        request_query = """
-            SELECT tr.*, u.full_name, u.department, u.grade, u.email,
-                   u.bank_name, u.account_number, u.account_name
-            FROM travel_requests tr
-            JOIN users u ON tr.user_id = u.id
-            WHERE tr.id = ?
-        """
-        request_data = pd.read_sql(request_query, conn, params=(request_id,)).iloc[0]
-        
-        # Get cost details
-        cost_query = """
-            SELECT * FROM travel_costs WHERE request_id = ?
-        """
-        cost_data = pd.read_sql(cost_query, conn, params=(request_id,))
-        
-        # Get approval history
-        approval_query = """
-            SELECT * FROM approvals WHERE request_id = ? ORDER BY approved_at
-        """
-        approvals = pd.read_sql(approval_query, conn, params=(request_id,))
-        
-        # Create PDF
-        pdf = PDFReport()
-        pdf.add_page()
-        pdf.set_auto_page_break(auto=True, margin=15)
-        
-        # Add request details
-        pdf.add_section_title("Travel Request Details")
-        pdf.add_field("Request ID", f"TR-{request_id:06d}")
-        pdf.add_field("Employee", request_data['full_name'])
-        pdf.add_field("Department", request_data['department'])
-        pdf.add_field("Grade", request_data['grade'])
-        pdf.add_field("Travel Type", request_data['travel_type'].title())
-        pdf.add_field("Destination", request_data['destination'])
-        pdf.add_field("Purpose", request_data['purpose'])
-        pdf.add_field("Mode of Travel", request_data['mode_of_travel'])
-        pdf.add_field("Departure Date", request_data['departure_date'])
-        pdf.add_field("Arrival Date", request_data['arrival_date'])
-        pdf.add_field("Duration", f"{request_data['duration_days']} days ({request_data['duration_nights']} nights)")
-        pdf.add_field("Accommodation", request_data['accommodation_needed'])
-        pdf.add_field("Status", request_data['status'].upper())
-        
-        # Add cost details if available
-        if not cost_data.empty:
-            pdf.add_section_title("Cost Details")
-            cost = cost_data.iloc[0]
-            pdf.add_field("Per Diem Amount", f"NGN {cost['per_diem_amount']:,.2f}")
-            pdf.add_field("Flight Cost", f"NGN {cost['flight_cost']:,.2f}")
-            pdf.add_field("Total Cost", f"NGN {cost['total_cost']:,.2f}")
-            pdf.add_field("Payment Status", cost['payment_status'].upper())
-            pdf.add_field("Budgeted Cost", f"NGN {cost['budgeted_cost']:,.2f}" if cost['budgeted_cost'] else "N/A")
-            pdf.add_field("Budget Balance", f"NGN {cost['budget_balance']:,.2f}" if cost['budget_balance'] else "N/A")
-        
-        # Add approval history
-        if not approvals.empty:
-            pdf.add_section_title("Approval History")
-            for _, approval in approvals.iterrows():
-                pdf.add_field(f"{approval['approver_role']}", 
-                             f"{approval['status'].upper()} - {approval['approved_at']}")
-        
-        # Add employee bank details
-        pdf.add_section_title("Employee Bank Details")
-        pdf.add_field("Bank Name", request_data['bank_name'] or "Not Provided")
-        pdf.add_field("Account Number", request_data['account_number'] or "Not Provided")
-        pdf.add_field("Account Name", request_data['account_name'] or "Not Provided")
-        
-        # Generate PDF as string and encode properly
-        pdf_str = pdf.output(dest='S')
-        
-        # For fpdf, we need to handle the output differently
-        # Instead of encoding, we'll use the string directly as fpdf handles Unicode internally
-        if isinstance(pdf_str, str):
-            # For newer versions of fpdf that return string
-            pdf_bytes = pdf_str.encode('utf-8')
-        else:
-            # For older versions that return bytes
-            pdf_bytes = pdf_str
-        
-        return pdf_bytes
-        
-    except Exception as e:
-        st.error(f"Error generating PDF: {str(e)}")
-        # Return a simple error PDF as bytes
-        try:
-            # Create a simple error PDF
-            pdf = FPDF()
-            pdf.add_page()
-            pdf.set_font('Arial', 'B', 16)
-            pdf.cell(0, 10, 'Error Generating Report', 0, 1, 'C')
-            pdf.set_font('Arial', '', 12)
-            pdf.cell(0, 10, f'An error occurred: {str(e)}', 0, 1, 'C')
-            pdf_str = pdf.output(dest='S')
-            if isinstance(pdf_str, str):
-                return pdf_str.encode('utf-8')
-            return pdf_str
-        except:
-            return None
-    finally:
-        if conn:
-            conn.close()
-# Database initialization with enhanced schema
+# Database initialization with enhanced schema (Requirement 5)
 def init_db():
     conn = sqlite3.connect('travel_app.db')
     c = conn.cursor()
     
-    # Users table with additional fields
+    # Users table with additional personal details fields (Requirement 5)
     c.execute('''CREATE TABLE IF NOT EXISTS users
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   full_name TEXT,
@@ -564,6 +490,11 @@ def init_db():
                   account_number TEXT,
                   account_name TEXT,
                   phone_number TEXT,
+                  date_of_birth DATE,
+                  place_of_birth TEXT,
+                  passport_number TEXT,
+                  nationality TEXT,
+                  marital_status TEXT,
                   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
     
     # Travel requests table
@@ -574,6 +505,7 @@ def init_db():
                   travel_type TEXT,
                   destination TEXT,
                   city TEXT,
+                  country TEXT,
                   purpose TEXT,
                   mode_of_travel TEXT,
                   departure_date DATE,
@@ -587,13 +519,14 @@ def init_db():
                   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                   FOREIGN KEY (user_id) REFERENCES users(id))''')
     
-    # Travel costs table with payment tracking
+    # Travel costs table with payment tracking and airport taxi cost field
     c.execute('''CREATE TABLE IF NOT EXISTS travel_costs
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   request_id INTEGER,
                   grade TEXT,
                   per_diem_amount REAL,
                   flight_cost REAL,
+                  airport_taxi_cost REAL,
                   total_cost REAL,
                   budgeted_cost REAL,
                   budget_balance REAL,
@@ -624,7 +557,7 @@ def init_db():
                   approved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                   FOREIGN KEY (request_id) REFERENCES travel_requests(id))''')
     
-    # Budget table
+    # Budget table (Requirement 1)
     c.execute('''CREATE TABLE IF NOT EXISTS budget
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   year INTEGER,
@@ -756,10 +689,9 @@ def get_grade_category(grade):
         return "EA-SO"
 
 def calculate_travel_costs(grade, travel_type, duration_nights):
-    """Calculate travel costs based on policy - UPDATED with new rates"""
+    """Calculate travel costs based on policy - UPDATED with airport taxi fix (Requirement 2)"""
     if travel_type == "local":
-        grade_category = get_grade_category(grade)
-        # For local travel, we need to map grades to the LOCAL_POLICY categories
+        # For local travel, map grades to LOCAL_POLICY categories
         if grade in ["MD", "ED", "GM"]:
             policy_category = "GM & ABOVE"
         elif grade in ["DGM", "AGM"]:
@@ -777,15 +709,26 @@ def calculate_travel_costs(grade, travel_type, duration_nights):
         hotel_cost = policy["hotel"] * duration_nights
         feeding_cost = policy["feeding"] * 3 * duration_nights  # 3 meals per day
         total = hotel_cost + feeding_cost
-        return total
+        return total, hotel_cost, feeding_cost, 0  # Return breakdown (airport taxi = 0 for local)
     else:
-        # International travel
+        # International travel - FIXED: Airport taxi is one-time, not per night
         grade_category = get_grade_category(grade)
         policy = INTERNATIONAL_POLICY[grade_category]
-        return policy["total_ngn"] * duration_nights
+        
+        # Calculate per-night costs
+        accommodation_cost = policy["accommodation"] * USD_TO_NGN * duration_nights
+        feeding_cost = policy["feeding"] * USD_TO_NGN * duration_nights
+        out_of_station_cost = policy["out_of_station"] * USD_TO_NGN * duration_nights
+        
+        # Airport taxi is one-time for the entire trip (round trip)
+        airport_taxi_cost = policy["airport_taxi"] * USD_TO_NGN  # No multiplication by nights
+        
+        total = accommodation_cost + feeding_cost + out_of_station_cost + airport_taxi_cost
+        
+        return total, accommodation_cost, feeding_cost, airport_taxi_cost
 
 def get_current_budget():
-    """Get current budget information with error handling"""
+    """Get current budget information with error handling (Requirement 1)"""
     conn = None
     try:
         conn = sqlite3.connect('travel_app.db')
@@ -832,7 +775,7 @@ def get_current_budget():
             conn.close()
 
 def update_budget(amount):
-    """Update budget after payment with improved error handling"""
+    """Update budget after payment with improved error handling (Requirement 1)"""
     conn = None
     try:
         conn = sqlite3.connect('travel_app.db')
@@ -844,7 +787,7 @@ def update_budget(amount):
         budget = c.fetchone()
         
         if budget:
-            # Update existing budget
+            # Update existing budget - utilized_budget increases, balance decreases
             c.execute('''UPDATE budget 
                          SET utilized_budget = utilized_budget + ?, 
                              balance = balance - ?,
@@ -867,7 +810,7 @@ def update_budget(amount):
             conn.close()
 
 def budget_analytics():
-    """Budget analytics dashboard - FIXED with better error handling"""
+    """Budget analytics dashboard - FIXED with better error handling (Requirement 1)"""
     if st.session_state.role not in ["Head of Administration", "admin"]:
         st.warning("Access denied")
         return
@@ -891,7 +834,7 @@ def budget_analytics():
             st.markdown(f"""
             <div class="metric-card">
                 <h3 style="color: #D32F2F;">₦{budget['total_budget']:,.0f}</h3>
-                <p style="color: #616161;">Total Budget</p>
+                <p style="color: #616161;">Total Budget (Approved)</p>
             </div>
             """, unsafe_allow_html=True)
         
@@ -899,7 +842,7 @@ def budget_analytics():
             st.markdown(f"""
             <div class="metric-card">
                 <h3 style="color: #4CAF50;">₦{budget['utilized_budget']:,.0f}</h3>
-                <p style="color: #616161;">YTD Actual</p>
+                <p style="color: #616161;">YTD Actual (Paid)</p>
             </div>
             """, unsafe_allow_html=True)
         
@@ -907,7 +850,7 @@ def budget_analytics():
             st.markdown(f"""
             <div class="metric-card">
                 <h3 style="color: #2196F3;">₦{budget['balance']:,.0f}</h3>
-                <p style="color: #616161;">Budget Balance</p>
+                <p style="color: #616161;">Budget Balance (Remaining)</p>
             </div>
             """, unsafe_allow_html=True)
         
@@ -929,14 +872,15 @@ def budget_analytics():
             # Monthly expenditure query
             monthly_query = """
                 SELECT 
-                    strftime('%Y-%m', tc.created_at) as month,
+                    strftime('%Y-%m', tc.payment_date) as month,
                     COUNT(DISTINCT tr.id) as request_count,
                     SUM(tc.total_cost) as monthly_expense
                 FROM travel_costs tc
                 JOIN travel_requests tr ON tc.request_id = tr.id
                 WHERE tc.payment_status = 'paid' 
                   AND tc.total_cost IS NOT NULL
-                GROUP BY strftime('%Y-%m', tc.created_at)
+                  AND tc.payment_date IS NOT NULL
+                GROUP BY strftime('%Y-%m', tc.payment_date)
                 ORDER BY month DESC
                 LIMIT 12
             """
@@ -1065,16 +1009,17 @@ def budget_analytics():
         monthly_avg_query = """
             SELECT AVG(monthly_total) as avg_monthly_spend
             FROM (
-                SELECT strftime('%Y-%m', tc.created_at) as month,
+                SELECT strftime('%Y-%m', tc.payment_date) as month,
                        SUM(tc.total_cost) as monthly_total
                 FROM travel_costs tc
                 WHERE tc.payment_status = 'paid'
                   AND tc.total_cost IS NOT NULL
-                GROUP BY strftime('%Y-%m', tc.created_at)
+                  AND tc.payment_date IS NOT NULL
+                GROUP BY strftime('%Y-%m', tc.payment_date)
             )
         """
         avg_result = pd.read_sql(monthly_avg_query, conn)
-        avg_monthly_spend = avg_result.iloc[0]['avg_monthly_spend'] if not avg_result.empty else 0
+        avg_monthly_spend = avg_result.iloc[0]['avg_monthly_spend'] if not avg_result.empty and avg_result.iloc[0]['avg_monthly_spend'] else 0
         
         if avg_monthly_spend and avg_monthly_spend > 0:
             months_remaining = 12 - datetime.datetime.now().month
@@ -1107,7 +1052,7 @@ def budget_analytics():
             conn.close()
 
 def generate_pdf_report(request_id):
-    """Generate PDF report for travel request - FIXED: Encoding issue"""
+    """Generate PDF report for travel request - FIXED: Unicode handling"""
     conn = None
     try:
         conn = sqlite3.connect('travel_app.db')
@@ -1115,7 +1060,8 @@ def generate_pdf_report(request_id):
         # Get request details
         request_query = """
             SELECT tr.*, u.full_name, u.department, u.grade, u.email,
-                   u.bank_name, u.account_number, u.account_name
+                   u.bank_name, u.account_number, u.account_name,
+                   u.date_of_birth, u.place_of_birth, u.passport_number, u.nationality, u.marital_status
             FROM travel_requests tr
             JOIN users u ON tr.user_id = u.id
             WHERE tr.id = ?
@@ -1159,12 +1105,14 @@ def generate_pdf_report(request_id):
         if not cost_data.empty:
             pdf.add_section_title("Cost Details")
             cost = cost_data.iloc[0]
-            pdf.add_field("Per Diem Amount", f"NGN{cost['per_diem_amount']:,.2f}")
-            pdf.add_field("Flight Cost", f"NGN{cost['flight_cost']:,.2f}")
-            pdf.add_field("Total Cost", f"NGN{cost['total_cost']:,.2f}")
+            pdf.add_field("Per Diem Amount", f"NGN {cost['per_diem_amount']:,.2f}")
+            pdf.add_field("Flight Cost", f"NGN {cost['flight_cost']:,.2f}")
+            if cost.get('airport_taxi_cost'):
+                pdf.add_field("Airport Taxi (One-time)", f"NGN {cost['airport_taxi_cost']:,.2f}")
+            pdf.add_field("Total Cost", f"NGN {cost['total_cost']:,.2f}")
             pdf.add_field("Payment Status", cost['payment_status'].upper())
-            pdf.add_field("Budgeted Cost", f"NGN{cost['budgeted_cost']:,.2f}" if cost['budgeted_cost'] else "N/A")
-            pdf.add_field("Budget Balance", f"NGN{cost['budget_balance']:,.2f}" if cost['budget_balance'] else "N/A")
+            pdf.add_field("Budgeted Cost", f"NGN {cost['budgeted_cost']:,.2f}" if cost['budgeted_cost'] else "N/A")
+            pdf.add_field("Budget Balance After Request", f"NGN {cost['budget_balance']:,.2f}" if cost['budget_balance'] else "N/A")
         
         # Add approval history
         if not approvals.empty:
@@ -1172,6 +1120,14 @@ def generate_pdf_report(request_id):
             for _, approval in approvals.iterrows():
                 pdf.add_field(f"{approval['approver_role']}", 
                              f"{approval['status'].upper()} - {approval['approved_at']}")
+        
+        # Add employee personal details (Requirement 5)
+        pdf.add_section_title("Employee Personal Details")
+        pdf.add_field("Date of Birth", request_data.get('date_of_birth') or "Not Provided")
+        pdf.add_field("Place of Birth", request_data.get('place_of_birth') or "Not Provided")
+        pdf.add_field("Passport Number", request_data.get('passport_number') or "Not Provided")
+        pdf.add_field("Nationality", request_data.get('nationality') or "Not Provided")
+        pdf.add_field("Marital Status", request_data.get('marital_status') or "Not Provided")
         
         # Add employee bank details
         pdf.add_section_title("Employee Bank Details")
@@ -1181,16 +1137,34 @@ def generate_pdf_report(request_id):
         
         # Generate PDF as string and encode properly
         pdf_str = pdf.output(dest='S')
-        # Convert to bytes with proper encoding, handling any Unicode characters
+        
+        # For fpdf, we need to handle the output differently
         if isinstance(pdf_str, str):
-            pdf_bytes = pdf_str.encode('latin-1', errors='replace')
+            # For newer versions of fpdf that return string
+            pdf_bytes = pdf_str.encode('utf-8')
         else:
+            # For older versions that return bytes
             pdf_bytes = pdf_str
         
         return pdf_bytes
+        
     except Exception as e:
         st.error(f"Error generating PDF: {str(e)}")
-        return None
+        # Return a simple error PDF as bytes
+        try:
+            # Create a simple error PDF
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.set_font('Arial', 'B', 16)
+            pdf.cell(0, 10, 'Error Generating Report', 0, 1, 'C')
+            pdf.set_font('Arial', '', 12)
+            pdf.cell(0, 10, f'An error occurred: {str(e)}', 0, 1, 'C')
+            pdf_str = pdf.output(dest='S')
+            if isinstance(pdf_str, str):
+                return pdf_str.encode('utf-8')
+            return pdf_str
+        except:
+            return None
     finally:
         if conn:
             conn.close()
@@ -1236,14 +1210,14 @@ def process_approval(request_id, action, comments=""):
         conn.close()
         return False, "Request not found"
     
-    # Get column indices
-    # Based on table structure: id, user_id, username, travel_type, destination, city, purpose,
-    # mode_of_travel, departure_date, arrival_date, accommodation_needed, duration_days,
+    # Get column indices - updated to include country
+    # Based on table structure: id, user_id, username, travel_type, destination, city, country,
+    # purpose, mode_of_travel, departure_date, arrival_date, accommodation_needed, duration_days,
     # duration_nights, status, current_approver, approval_flow, created_at
     
-    current_status = request[13]  # status column
-    current_approver = request[14]  # current_approver column
-    approval_flow_json = request[15]  # approval_flow column
+    current_status = request[14]  # status column
+    current_approver = request[15]  # current_approver column
+    approval_flow_json = request[16]  # approval_flow column
     
     try:
         approval_flow = json.loads(approval_flow_json)
@@ -1391,31 +1365,42 @@ def login():
     st.markdown('</div>', unsafe_allow_html=True)
 
 def registration_form():
-    """User registration form"""
+    """User registration form with additional personal details (Requirement 5)"""
     st.markdown('<h2 class="sub-header">Create New Account</h2>', unsafe_allow_html=True)
     
     with st.form("registration_form"):
+        st.markdown("### Personal Information")
         col1, col2 = st.columns(2)
         
         with col1:
             full_name = st.text_input("Full Name*")
             username = st.text_input("Username (Employee ID)*")
             email = st.text_input("Email Address*")
-            department = st.selectbox("Department*", DEPARTMENTS)
-            grade = st.selectbox("Grade*", GRADES)
+            date_of_birth = st.date_input("Date of Birth*", min_value=date(1900, 1, 1), max_value=date.today())
+            place_of_birth = st.text_input("Place of Birth*")
         
         with col2:
             password = st.text_input("Password*", type="password")
             confirm_password = st.text_input("Confirm Password*", type="password")
-            role = st.selectbox("Role*", ROLES)
-            phone_number = st.text_input("Phone Number")
+            passport_number = st.text_input("International Passport Number")
+            nationality = st.selectbox("Nationality*", COUNTRIES, index=COUNTRIES.index("Nigeria") if "Nigeria" in COUNTRIES else 0)
+            marital_status = st.selectbox("Marital Status*", MARITAL_STATUS)
         
-        st.markdown("### Bank Details (Optional)")
+        st.markdown("### Employment Details")
         col3, col4 = st.columns(2)
         with col3:
+            department = st.selectbox("Department*", DEPARTMENTS)
+            grade = st.selectbox("Grade*", GRADES)
+        with col4:
+            role = st.selectbox("Role*", ROLES)
+            phone_number = st.text_input("Phone Number*")
+        
+        st.markdown("### Bank Details (Optional but recommended for payments)")
+        col5, col6 = st.columns(2)
+        with col5:
             bank_name = st.text_input("Bank Name")
             account_number = st.text_input("Account Number")
-        with col4:
+        with col6:
             account_name = st.text_input("Account Name")
         
         profile_pic = st.file_uploader("Profile Picture (Optional)", type=['jpg', 'jpeg', 'png'])
@@ -1423,7 +1408,8 @@ def registration_form():
         submitted = st.form_submit_button("Create Account")
         
         if submitted:
-            if not all([full_name, username, email, password, confirm_password, department, grade, role]):
+            if not all([full_name, username, email, password, confirm_password, department, grade, role, 
+                       phone_number, date_of_birth, place_of_birth, nationality, marital_status]):
                 st.error("Please fill in all required fields")
             elif password != confirm_password:
                 st.error("Passwords do not match")
@@ -1442,14 +1428,17 @@ def registration_form():
                     if profile_pic:
                         pic_data = profile_pic.read()
                     
-                    # Insert user
+                    # Insert user with all new fields
                     c.execute("""INSERT INTO users 
                                  (full_name, username, email, password, department, grade, role, 
-                                  profile_pic, bank_name, account_number, account_name, phone_number) 
-                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                  profile_pic, bank_name, account_number, account_name, phone_number,
+                                  date_of_birth, place_of_birth, passport_number, nationality, marital_status) 
+                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                              (full_name, username, email, make_hashes(password), 
                               department, grade, role, pic_data, bank_name, 
-                              account_number, account_name, phone_number))
+                              account_number, account_name, phone_number,
+                              date_of_birth.strftime("%Y-%m-%d"), place_of_birth, 
+                              passport_number, nationality, marital_status))
                     
                     conn.commit()
                     conn.close()
@@ -1460,7 +1449,7 @@ def registration_form():
                     st.rerun()
 
 def profile_update():
-    """User profile update form"""
+    """User profile update form with new fields (Requirement 5)"""
     st.markdown('<h1 class="sub-header">Update Profile</h1>', unsafe_allow_html=True)
     
     conn = sqlite3.connect('travel_app.db')
@@ -1468,16 +1457,30 @@ def profile_update():
                            conn, params=(st.session_state.username,)).iloc[0]
     
     with st.form("profile_update_form"):
+        st.markdown("### Personal Information")
         col1, col2 = st.columns(2)
         
         with col1:
             full_name = st.text_input("Full Name*", value=user_data['full_name'])
             email = st.text_input("Email Address*", value=user_data['email'])
-            phone_number = st.text_input("Phone Number", value=user_data['phone_number'] or "")
+            date_of_birth = st.date_input("Date of Birth*", 
+                                         value=pd.to_datetime(user_data['date_of_birth']) if user_data['date_of_birth'] else date(1980, 1, 1))
+            place_of_birth = st.text_input("Place of Birth*", value=user_data['place_of_birth'] or "")
         
         with col2:
+            phone_number = st.text_input("Phone Number*", value=user_data['phone_number'] or "")
+            passport_number = st.text_input("International Passport Number", value=user_data['passport_number'] or "")
+            nationality = st.selectbox("Nationality*", COUNTRIES, 
+                                      index=COUNTRIES.index(user_data['nationality']) if user_data['nationality'] in COUNTRIES else 0)
+            marital_status = st.selectbox("Marital Status*", MARITAL_STATUS,
+                                         index=MARITAL_STATUS.index(user_data['marital_status']) if user_data['marital_status'] in MARITAL_STATUS else 0)
+        
+        st.markdown("### Bank Details")
+        col3, col4 = st.columns(2)
+        with col3:
             bank_name = st.text_input("Bank Name", value=user_data['bank_name'] or "")
             account_number = st.text_input("Account Number", value=user_data['account_number'] or "")
+        with col4:
             account_name = st.text_input("Account Name", value=user_data['account_name'] or "")
         
         profile_pic = st.file_uploader("Update Profile Picture", type=['jpg', 'jpeg', 'png'])
@@ -1489,7 +1492,7 @@ def profile_update():
         submitted = st.form_submit_button("Update Profile")
         
         if submitted:
-            if not all([full_name, email]):
+            if not all([full_name, email, phone_number, date_of_birth, place_of_birth, nationality, marital_status]):
                 st.error("Please fill in all required fields")
             else:
                 # Update profile picture
@@ -1502,10 +1505,14 @@ def profile_update():
                 c.execute("""UPDATE users 
                              SET full_name = ?, email = ?, phone_number = ?,
                                  bank_name = ?, account_number = ?, account_name = ?,
-                                 profile_pic = ?
+                                 profile_pic = ?, date_of_birth = ?, place_of_birth = ?,
+                                 passport_number = ?, nationality = ?, marital_status = ?
                              WHERE username = ?""",
                          (full_name, email, phone_number, bank_name, 
-                          account_number, account_name, pic_data, st.session_state.username))
+                          account_number, account_name, pic_data,
+                          date_of_birth.strftime("%Y-%m-%d"), place_of_birth,
+                          passport_number, nationality, marital_status,
+                          st.session_state.username))
                 
                 conn.commit()
                 conn.close()
@@ -1764,7 +1771,7 @@ def show_dashboard():
     else:
         st.info("No travel requests yet")
     
-    # Budget overview for admin
+    # Budget overview for admin (Requirement 1)
     if st.session_state.role in ["Head of Administration", "admin"]:
         st.markdown("---")
         st.markdown("### Budget Overview")
@@ -1776,7 +1783,7 @@ def show_dashboard():
             with col5:
                 st.metric("Total Budget", f"NGN{budget['total_budget']:,.0f}")
             with col6:
-                st.metric("Utilized", f"NGN{budget['utilized_budget']:,.0f}")
+                st.metric("Utilized (Paid)", f"NGN{budget['utilized_budget']:,.0f}")
             with col7:
                 st.metric("Balance", f"NGN{budget['balance']:,.0f}")
             
@@ -1799,7 +1806,7 @@ def show_dashboard():
     conn.close()
 
 def show_profile():
-    """User profile page"""
+    """User profile page with new fields (Requirement 5)"""
     st.markdown('<h1 class="sub-header">My Profile</h1>', unsafe_allow_html=True)
     
     conn = sqlite3.connect('travel_app.db')
@@ -1819,6 +1826,11 @@ def show_profile():
         st.markdown(f"**Employee ID:** {user_data['username']}")
         st.markdown(f"**Email:** {user_data['email']}")
         st.markdown(f"**Phone:** {user_data['phone_number'] or 'Not provided'}")
+        st.markdown(f"**Date of Birth:** {user_data['date_of_birth'] or 'Not provided'}")
+        st.markdown(f"**Place of Birth:** {user_data['place_of_birth'] or 'Not provided'}")
+        st.markdown(f"**Nationality:** {user_data['nationality'] or 'Not provided'}")
+        st.markdown(f"**Marital Status:** {user_data['marital_status'] or 'Not provided'}")
+        st.markdown(f"**Passport Number:** {user_data['passport_number'] or 'Not provided'}")
         st.markdown(f"**Department:** {user_data['department']}")
         st.markdown(f"**Grade:** {user_data['grade']}")
         st.markdown(f"**Role:** {user_data['role']}")
@@ -1832,7 +1844,7 @@ def show_profile():
     conn.close()
 
 def travel_request_form():
-    """Travel request form - FIXED: City selection based on state"""
+    """Travel request form - UPDATED: City selection from comprehensive list and country from list (Requirements 3 & 4)"""
     st.markdown('<h1 class="sub-header">New Travel Request</h1>', unsafe_allow_html=True)
     
     travel_type = st.radio("Travel Type", ["Local", "International"], horizontal=True)
@@ -1842,11 +1854,11 @@ def travel_request_form():
         
         with col1:
             if travel_type == "Local":
-                # FIXED: Use session state to track selected state
+                # FIXED: Comprehensive cities for each state (Requirement 3)
                 state = st.selectbox("State*", list(NIGERIAN_STATES.keys()), 
                                     key="travel_state", index=0)
                 
-                # Get cities for selected state - FIXED: Properly update cities
+                # Get cities for selected state - comprehensive list
                 cities = NIGERIAN_STATES.get(state, [])
                 
                 # City selection based on selected state
@@ -1857,8 +1869,10 @@ def travel_request_form():
                     st.warning("Please enter city manually")
                 
                 destination = f"{city}, {state}"
+                country = "Nigeria"
             else:
-                country = st.text_input("Country*")
+                # UPDATED: Country selection from comprehensive list (Requirement 4)
+                country = st.selectbox("Country*", COUNTRIES, index=COUNTRIES.index("United Kingdom") if "United Kingdom" in COUNTRIES else 0)
                 city = st.text_input("City/Region*")
                 destination = f"{city}, {country}"
             
@@ -1890,7 +1904,6 @@ def travel_request_form():
         # Show policy information
         if travel_type == "Local":
             st.markdown("### Local Travel Policy Rates")
-            grade_category = get_grade_category(st.session_state.grade)
             # Map grade to policy category for display
             if st.session_state.grade in ["MD", "ED", "GM"]:
                 policy_category = "GM & ABOVE"
@@ -1911,6 +1924,12 @@ def travel_request_form():
                 st.info(f"**Hotel:** {policy['hotel_text']}")
             with col_b:
                 st.info(f"**Feeding:** {policy['feeding_text']}")
+            
+            # Calculate and show estimated cost
+            estimated_total, hotel_cost, feeding_cost, _ = calculate_travel_costs(
+                st.session_state.grade, travel_type.lower(), duration_nights)
+            st.metric("Estimated Total Cost", f"NGN{estimated_total:,.2f}")
+            
         else:
             st.markdown("### International Travel Policy Rates (USD 1 = NGN 1,400)")
             grade_category = get_grade_category(st.session_state.grade)
@@ -1924,7 +1943,18 @@ def travel_request_form():
                 st.info(f"**Out of Station:** {policy['out_of_station_text']}")
             with col_d:
                 st.info(f"**Airport Taxi:** {policy['airport_taxi_text']}")
-            st.info(f"**Total per day:** ${policy['total_usd']} (NGN{policy['total_ngn']:,.0f})")
+            
+            # Calculate and show estimated cost with breakdown (Requirement 2)
+            estimated_total, accommodation_cost, feeding_cost, airport_taxi_cost = calculate_travel_costs(
+                st.session_state.grade, travel_type.lower(), duration_nights)
+            
+            col_e, col_f, col_g = st.columns(3)
+            with col_e:
+                st.metric("Per Day Total", f"${policy['total_usd']:,.0f} (NGN{policy['total_ngn']:,.0f})")
+            with col_f:
+                st.metric("Trip Total", f"NGN{estimated_total:,.2f}")
+            with col_g:
+                st.metric("Airport Taxi (One-time)", f"NGN{airport_taxi_cost:,.0f}")
         
         submitted = st.form_submit_button("Submit Request", type="primary")
         
@@ -1946,16 +1976,17 @@ def travel_request_form():
                 c = conn.cursor()
                 
                 c.execute("""INSERT INTO travel_requests 
-                          (user_id, username, travel_type, destination, city, purpose, 
+                          (user_id, username, travel_type, destination, city, country, purpose, 
                           mode_of_travel, departure_date, arrival_date, 
                           accommodation_needed, duration_days, duration_nights, 
                           current_approver, approval_flow) 
-                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                          (st.session_state.user_id,
                           st.session_state.username, 
                           travel_type.lower(), 
                           destination, 
                           city, 
+                          country,
                           purpose, 
                           mode_of_travel,
                           departure_date.strftime("%Y-%m-%d"),
@@ -1979,11 +2010,6 @@ def travel_request_form():
                 
                 st.success("✅ Travel request submitted successfully!")
                 st.info(f"**Approval Flow:** {' → '.join(approval_flow)}")
-                
-                # Calculate estimated costs
-                estimated_total = calculate_travel_costs(st.session_state.grade, travel_type.lower(), duration_nights)
-                if estimated_total > 0:
-                    st.metric("Estimated Total Cost", f"NGN{estimated_total:,.2f}")
 
 def travel_history():
     """Travel history page"""
@@ -2237,7 +2263,7 @@ def show_approvals():
         st.success("🎉 No pending approvals! You're all caught up.")
 
 def admin_panel():
-    """Admin panel for managing travel costs"""
+    """Admin panel for managing travel costs - FIXED: Budget balance calculation (Requirement 1)"""
     if st.session_state.role not in ["Head of Administration", "admin"]:
         st.warning("Access denied")
         return
@@ -2269,29 +2295,45 @@ def admin_panel():
                 except:
                     budget = {'balance': ANNUAL_BUDGET}
                 
-                # Calculate estimated costs
-                estimated_cost = calculate_travel_costs(row['grade'], row['travel_type'], row['duration_nights'])
+                # Calculate estimated costs with breakdown (includes airport taxi fix)
+                estimated_total, per_diem, flight_cost_val, airport_taxi = calculate_travel_costs(
+                    row['grade'], row['travel_type'], row['duration_nights'])
                 
                 # Cost input form
                 with st.form(f"cost_form_{row['id']}"):
                     col_a, col_b = st.columns(2)
                     
                     with col_a:
+                        st.metric("Per Diem Amount", f"NGN{per_diem:,.2f}")
+                        
+                        # Allow manual adjustment if needed
                         flight_cost = st.number_input("Flight Cost (NGN)", 
                                                      min_value=0.0, 
-                                                     value=0.0,
+                                                     value=float(flight_cost_val),
                                                      key=f"flight_{row['id']}")
                         
-                        budgeted_cost = st.number_input("Budgeted Cost (NGN)",
-                                                       min_value=0.0,
-                                                       value=float(estimated_cost) + 100000,
-                                                       key=f"budget_{row['id']}")
+                        if row['travel_type'] == 'international':
+                            st.metric("Airport Taxi (One-time)", f"NGN{airport_taxi:,.2f}")
                     
                     with col_b:
-                        budget_balance = budget['balance'] - budgeted_cost
+                        # Calculate total cost with airport taxi
+                        if row['travel_type'] == 'international':
+                            total_cost = per_diem + flight_cost + airport_taxi
+                        else:
+                            total_cost = per_diem + flight_cost
+                        
+                        st.metric("Total Cost", f"NGN{total_cost:,.2f}")
+                        
+                        # FIXED: Budget balance calculation (Total Budget - Utilized - This Request)
+                        budget_balance_after = budget['balance'] - total_cost
+                        
                         st.metric("Current Budget Balance", f"NGN{budget['balance']:,.0f}")
-                        st.metric("After This Request", f"NGN{budget_balance:,.0f}", 
-                                 delta=f"-NGN{budgeted_cost:,.0f}")
+                        st.metric("Balance After This Request", f"NGN{budget_balance_after:,.0f}", 
+                                 delta=f"-NGN{total_cost:,.0f}" if total_cost > 0 else "0")
+                        
+                        # Warning if budget exceeded
+                        if budget_balance_after < 0:
+                            st.warning(f"⚠️ This request will exceed budget by NGN{-budget_balance_after:,.0f}")
                     
                     supporting_docs = st.file_uploader("Supporting Documents", 
                                                       type=['pdf', 'jpg', 'png'],
@@ -2306,8 +2348,6 @@ def admin_panel():
                         save_btn = st.form_submit_button("Save as Draft")
                     
                     if submit_btn or save_btn:
-                        total_cost = estimated_cost + flight_cost
-                        
                         c = conn.cursor()
                         
                         # Check if cost record exists
@@ -2315,24 +2355,24 @@ def admin_panel():
                         existing_cost = c.fetchone()
                         
                         if not existing_cost:
-                            # Insert new cost record
+                            # Insert new cost record with airport taxi cost
                             c.execute("""INSERT INTO travel_costs 
-                                       (request_id, grade, per_diem_amount, flight_cost, 
+                                       (request_id, grade, per_diem_amount, flight_cost, airport_taxi_cost,
                                         total_cost, budgeted_cost, budget_balance,
                                         admin_notes, payment_status, approved_by_admin) 
-                                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                                     (row['id'], row['grade'], estimated_cost, flight_cost,
-                                      total_cost, budgeted_cost, budget_balance,
+                                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                     (row['id'], row['grade'], per_diem, flight_cost, airport_taxi,
+                                      total_cost, total_cost, budget_balance_after,
                                       admin_notes, "pending" if submit_btn else "draft", 1))
                         else:
                             # Update existing cost record
                             c.execute("""UPDATE travel_costs 
-                                       SET per_diem_amount = ?, flight_cost = ?, 
+                                       SET per_diem_amount = ?, flight_cost = ?, airport_taxi_cost = ?,
                                            total_cost = ?, budgeted_cost = ?, budget_balance = ?,
                                            admin_notes = ?, payment_status = ?, approved_by_admin = 1 
                                        WHERE request_id = ?""",
-                                     (estimated_cost, flight_cost, total_cost, budgeted_cost,
-                                      budget_balance, admin_notes, 
+                                     (per_diem, flight_cost, airport_taxi, total_cost, total_cost,
+                                      budget_balance_after, admin_notes, 
                                       "pending" if submit_btn else "draft", row['id']))
                         
                         # Create approval record
@@ -2341,7 +2381,7 @@ def admin_panel():
                                        (request_id, approver_role, approver_name, status, comments)
                                        VALUES (?, ?, ?, ?, ?)""",
                                      (row['id'], "Head of Administration", st.session_state.full_name,
-                                      "approved", "Costs submitted for payment approval"))
+                                      "approved", f"Costs submitted for payment approval. Total: NGN{total_cost:,.2f}"))
                         
                         conn.commit()
                         
@@ -2359,7 +2399,7 @@ def admin_panel():
     conn.close()
 
 def payment_approvals():
-    """Payment approval workflow"""
+    """Payment approval workflow - FIXED: Shows budget balance"""
     if st.session_state.role not in ["Head of Administration", "Chief Compliance Officer", 
                                     "Chief Risk Officer", "CFO/ED", "MD", "admin"]:
         st.warning("Access denied")
@@ -2382,7 +2422,8 @@ def payment_approvals():
     conn = sqlite3.connect('travel_app.db')
     
     query = f"""
-        SELECT tc.*, tr.destination, tr.purpose, u.full_name, u.department, u.grade
+        SELECT tc.*, tr.destination, tr.purpose, u.full_name, u.department, u.grade,
+               tr.travel_type
         FROM travel_costs tc
         JOIN travel_requests tr ON tc.request_id = tr.id
         JOIN users u ON tr.user_id = u.id
@@ -2409,9 +2450,14 @@ def payment_approvals():
                 with col2:
                     st.markdown(f"**Per Diem:** NGN{row['per_diem_amount']:,.2f}")
                     st.markdown(f"**Flight Cost:** NGN{row['flight_cost']:,.2f}")
+                    if row['travel_type'] == 'international' and row.get('airport_taxi_cost'):
+                        st.markdown(f"**Airport Taxi:** NGN{row['airport_taxi_cost']:,.2f}")
                     st.markdown(f"**Total Cost:** NGN{row['total_cost']:,.2f}")
-                    st.markdown(f"**Budgeted:** NGN{row['budgeted_cost']:,.2f}")
-                    st.markdown(f"**Budget Balance:** NGN{row['budget_balance']:,.2f}")
+                    st.markdown(f"**Budget Balance After Request:** NGN{row['budget_balance']:,.2f}")
+                    
+                    # Warning if budget balance negative
+                    if row['budget_balance'] < 0:
+                        st.warning(f"⚠️ This request exceeds available budget by NGN{-row['budget_balance']:,.0f}")
                 
                 # Get payment approval flow
                 approval_flow = get_payment_approval_flow(row['total_cost'])
@@ -2537,7 +2583,7 @@ def final_approvals():
     payment_approvals()
 
 def payment_processing():
-    """Payment processing for Payables Officer - FIXED: Added error handling"""
+    """Payment processing for Payables Officer - FIXED: Budget update when marking as paid (Requirement 1)"""
     if st.session_state.role != "Payables Officer":
         st.warning("Access denied")
         return
@@ -2574,6 +2620,7 @@ def payment_processing():
                     st.markdown(f"**Bank:** {row['bank_name'] or 'Not provided'}")
                     st.markdown(f"**Account Number:** {row['account_number'] or 'Not provided'}")
                     st.markdown(f"**Account Name:** {row['account_name'] or 'Not provided'}")
+                    st.markdown(f"**Budget Balance After Request:** NGN{row['budget_balance']:,.2f}")
                 
                 # Process payment
                 with st.form(f"process_payment_{row['id']}"):
@@ -2601,7 +2648,8 @@ def payment_processing():
                                       reference_number, st.session_state.full_name,
                                       payment_date.strftime("%Y-%m-%d")))
                             
-                            # Update budget
+                            # FIXED: Update budget with the actual payment amount (Requirement 1)
+                            # This deducts from the budget balance (utilized increases, balance decreases)
                             update_budget(row['total_cost'])
                             
                             # Record approval
@@ -2613,7 +2661,7 @@ def payment_processing():
                                       f"Payment processed - NGN{row['total_cost']:,.2f}"))
                             
                             conn.commit()
-                            st.success("✅ Payment marked as completed!")
+                            st.success("✅ Payment marked as completed! Budget updated.")
                             time.sleep(2)
                             st.rerun()
                         except Exception as e:
@@ -2622,135 +2670,6 @@ def payment_processing():
         st.info("No payments pending processing")
     
     conn.close()
-
-def budget_analytics():
-    """Budget analytics dashboard"""
-    if st.session_state.role not in ["Head of Administration", "admin"]:
-        st.warning("Access denied")
-        return
-    
-    st.markdown('<h1 class="sub-header">Budget Analytics</h1>', unsafe_allow_html=True)
-    
-    conn = sqlite3.connect('travel_app.db')
-    
-    try:
-        # Get budget data
-        budget = get_current_budget()
-        
-        # Summary cards
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.markdown(f"""
-            <div class="metric-card">
-                <h3 style="color: #D32F2F;">NGN{budget['total_budget']:,.0f}</h3>
-                <p style="color: #616161;">Total Budget</p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col2:
-            st.markdown(f"""
-            <div class="metric-card">
-                <h3 style="color: #4CAF50;">NGN{budget['utilized_budget']:,.0f}</h3>
-                <p style="color: #616161;">YTD Actual</p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col3:
-            st.markdown(f"""
-            <div class="metric-card">
-                <h3 style="color: #2196F3;">NGN{budget['balance']:,.0f}</h3>
-                <p style="color: #616161;">Budget Balance</p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col4:
-            utilization = (budget['utilized_budget'] / budget['total_budget']) * 100
-            st.markdown(f"""
-            <div class="metric-card">
-                <h3 style="color: {'#4CAF50' if utilization < 80 else '#F44336'};">{utilization:.1f}%</h3>
-                <p style="color: #616161;">Utilization Rate</p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        st.markdown("---")
-        
-        # Detailed analytics
-        col5, col6 = st.columns(2)
-        
-        with col5:
-            # Monthly expenditure
-            monthly_query = """
-                SELECT strftime('%Y-%m', tc.created_at) as month,
-                       SUM(tc.total_cost) as monthly_expense
-                FROM travel_costs tc
-                WHERE tc.payment_status = 'paid'
-                GROUP BY strftime('%Y-%m', tc.created_at)
-                ORDER BY month
-            """
-            monthly_data = pd.read_sql(monthly_query, conn)
-            
-            if not monthly_data.empty:
-                fig1 = px.bar(monthly_data, x='month', y='monthly_expense',
-                             title="Monthly Expenditure",
-                             color='monthly_expense',
-                             labels={'monthly_expense': 'Amount (NGN)'})
-                st.plotly_chart(fig1, use_container_width=True)
-        
-        with col6:
-            # Department-wise expenditure
-            dept_query = """
-                SELECT u.department, SUM(tc.total_cost) as dept_expense
-                FROM travel_costs tc
-                JOIN travel_requests tr ON tc.request_id = tr.id
-                JOIN users u ON tr.user_id = u.id
-                WHERE tc.payment_status = 'paid'
-                GROUP BY u.department
-                ORDER BY dept_expense DESC
-            """
-            dept_data = pd.read_sql(dept_query, conn)
-            
-            if not dept_data.empty:
-                fig2 = px.pie(dept_data, values='dept_expense', names='department',
-                             title="Expenditure by Department")
-                st.plotly_chart(fig2, use_container_width=True)
-        
-        # Detailed transaction table
-        st.markdown("### Detailed Transactions")
-        transactions_query = """
-            SELECT tc.id, u.full_name, u.department, tr.destination,
-                   tc.total_cost, tc.payment_status, tc.payment_date,
-                   tc.payment_approved_by
-            FROM travel_costs tc
-            JOIN travel_requests tr ON tc.request_id = tr.id
-            JOIN users u ON tr.user_id = u.id
-            WHERE tc.total_cost IS NOT NULL
-            ORDER BY tc.created_at DESC
-        """
-        transactions = pd.read_sql(transactions_query, conn)
-        
-        if not transactions.empty:
-            # Export button
-            if st.button("📊 Export to Excel"):
-                # Convert to Excel
-                output = io.BytesIO()
-                with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                    transactions.to_excel(writer, index=False, sheet_name='Budget Analytics')
-                
-                st.download_button(
-                    label="Download Excel",
-                    data=output.getvalue(),
-                    file_name=f"budget_analytics_{date.today()}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
-            
-            st.dataframe(transactions, use_container_width=True)
-        else:
-            st.info("No transactions found")
-    except Exception as e:
-        st.error(f"Error loading budget analytics: {str(e)}")
-    finally:
-        conn.close()
 
 def analytics_dashboard():
     """Analytics dashboard for all users"""
@@ -2875,5 +2794,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
