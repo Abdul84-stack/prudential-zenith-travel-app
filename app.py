@@ -837,6 +837,550 @@ def update_budget(amount):
         if conn:
             conn.close()
 
+def get_current_budget():
+    """Get current budget information with error handling (Requirement 1)"""
+    conn = None
+    try:
+        conn = sqlite3.connect('travel_app.db')
+        current_year = datetime.datetime.now().year
+        
+        # Check if budget record exists
+        c = conn.cursor()
+        c.execute("SELECT * FROM budget WHERE year = ?", (current_year,))
+        budget_record = c.fetchone()
+        
+        if budget_record:
+            # Convert to dictionary for easier access
+            columns = ['id', 'year', 'total_budget', 'utilized_budget', 'balance', 'last_updated']
+            budget = dict(zip(columns, budget_record))
+        else:
+            # Create budget record if it doesn't exist
+            c.execute('''INSERT INTO budget (year, total_budget, utilized_budget, balance)
+                         VALUES (?, ?, 0, ?)''', 
+                     (current_year, ANNUAL_BUDGET, ANNUAL_BUDGET))
+            conn.commit()
+            
+            # Return default budget
+            budget = {
+                'id': None,
+                'year': current_year,
+                'total_budget': ANNUAL_BUDGET,
+                'utilized_budget': 0,
+                'balance': ANNUAL_BUDGET,
+                'last_updated': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+        
+        # Also calculate utilized budget from paid payments to ensure accuracy
+        c.execute('''SELECT SUM(total_cost) as total_paid 
+                     FROM travel_costs 
+                     WHERE payment_status = 'paid' 
+                     AND strftime('%Y', payment_date) = ?''', 
+                  (str(current_year),))
+        paid_result = c.fetchone()
+        if paid_result and paid_result[0]:
+            paid_amount = paid_result[0]
+            
+            # If paid_amount doesn't match utilized_budget, update it
+            if paid_amount != budget['utilized_budget']:
+                budget['utilized_budget'] = paid_amount
+                budget['balance'] = budget['total_budget'] - paid_amount
+                
+                # Update database to reflect correct values
+                c.execute('''UPDATE budget 
+                             SET utilized_budget = ?, balance = ?
+                             WHERE year = ?''',
+                         (paid_amount, budget['total_budget'] - paid_amount, current_year))
+                conn.commit()
+        
+        return budget
+    except Exception as e:
+        st.error(f"Error getting budget: {str(e)}")
+        # Return default budget as fallback
+        return {
+            'year': datetime.datetime.now().year,
+            'total_budget': ANNUAL_BUDGET,
+            'utilized_budget': 0,
+            'balance': ANNUAL_BUDGET
+        }
+    finally:
+        if conn:
+            conn.close()
+
+def update_budget(amount):
+    """Update budget after payment with improved error handling (Requirement 1)"""
+    conn = None
+    try:
+        conn = sqlite3.connect('travel_app.db')
+        c = conn.cursor()
+        current_year = datetime.datetime.now().year
+        
+        # First check if budget record exists
+        c.execute("SELECT * FROM budget WHERE year = ?", (current_year,))
+        budget = c.fetchone()
+        
+        if budget:
+            # Update existing budget - utilized_budget increases, balance decreases
+            c.execute('''UPDATE budget 
+                         SET utilized_budget = utilized_budget + ?, 
+                             balance = balance - ?,
+                             last_updated = CURRENT_TIMESTAMP
+                         WHERE year = ?''', 
+                     (amount, amount, current_year))
+        else:
+            # Create budget record if it doesn't exist
+            c.execute('''INSERT INTO budget (year, total_budget, utilized_budget, balance)
+                         VALUES (?, ?, ?, ?)''',
+                     (current_year, ANNUAL_BUDGET, amount, ANNUAL_BUDGET - amount))
+        
+        conn.commit()
+        
+        # Verify the update
+        c.execute("SELECT utilized_budget, balance FROM budget WHERE year = ?", (current_year,))
+        updated = c.fetchone()
+        if updated:
+            st.success(f"Budget updated: Utilized = NGN{updated[0]:,.0f}, Balance = NGN{updated[1]:,.0f}")
+        
+        return True
+    except Exception as e:
+        st.error(f"Error updating budget: {str(e)}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+def generate_pdf_report(request_id):
+    """Generate PDF report for travel request - FIXED: Empty PDF issue"""
+    conn = None
+    try:
+        conn = sqlite3.connect('travel_app.db')
+        
+        # Get request details
+        request_query = """
+            SELECT tr.*, u.full_name, u.department, u.grade, u.email,
+                   u.bank_name, u.account_number, u.account_name,
+                   u.date_of_birth, u.place_of_birth, u.passport_number, u.nationality, u.marital_status
+            FROM travel_requests tr
+            JOIN users u ON tr.user_id = u.id
+            WHERE tr.id = ?
+        """
+        request_df = pd.read_sql(request_query, conn, params=(request_id,))
+        
+        if request_df.empty:
+            st.error(f"No request found with ID: {request_id}")
+            return None
+            
+        request_data = request_df.iloc[0]
+        
+        # Get cost details
+        cost_query = """
+            SELECT * FROM travel_costs WHERE request_id = ?
+        """
+        cost_data = pd.read_sql(cost_query, conn, params=(request_id,))
+        
+        # Get approval history
+        approval_query = """
+            SELECT * FROM approvals WHERE request_id = ? ORDER BY approved_at
+        """
+        approvals = pd.read_sql(approval_query, conn, params=(request_id,))
+        
+        # Create PDF with explicit output
+        pdf = PDFReport()
+        pdf.add_page()
+        pdf.set_auto_page_break(auto=True, margin=15)
+        
+        # Add company header
+        pdf.set_font('Arial', 'B', 16)
+        pdf.set_text_color(211, 47, 47)
+        pdf.cell(0, 10, 'PRUDENTIAL ZENITH LIFE INSURANCE', 0, 1, 'C')
+        pdf.set_font('Arial', 'B', 14)
+        pdf.set_text_color(97, 97, 97)
+        pdf.cell(0, 10, 'Travel Request Report', 0, 1, 'C')
+        pdf.ln(10)
+        
+        # Add request details
+        pdf.set_font('Arial', 'B', 12)
+        pdf.set_text_color(211, 47, 47)
+        pdf.cell(0, 10, 'Travel Request Details', 0, 1, 'L')
+        pdf.set_draw_color(211, 47, 47)
+        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        pdf.ln(5)
+        
+        # Request details
+        pdf.set_font('Arial', 'B', 10)
+        pdf.set_text_color(66, 66, 66)
+        
+        # Helper function to add field
+        def add_pdf_field(pdf, label, value):
+            pdf.set_font('Arial', 'B', 10)
+            pdf.set_text_color(66, 66, 66)
+            pdf.cell(45, 8, f'{label}:', 0, 0)
+            pdf.set_font('Arial', '', 10)
+            pdf.set_text_color(33, 33, 33)
+            
+            if value is None or value == '':
+                value_str = 'Not Provided'
+            else:
+                value_str = str(value)
+            
+            # Handle long text
+            if pdf.get_string_width(value_str) > 150:
+                pdf.multi_cell(0, 8, value_str, 0, 1)
+            else:
+                pdf.cell(0, 8, value_str, 0, 1)
+        
+        add_pdf_field(pdf, "Request ID", f"TR-{int(request_data['id']):06d}")
+        add_pdf_field(pdf, "Employee", request_data['full_name'])
+        add_pdf_field(pdf, "Department", request_data['department'])
+        add_pdf_field(pdf, "Grade", request_data['grade'])
+        add_pdf_field(pdf, "Travel Type", request_data['travel_type'].title() if request_data['travel_type'] else 'N/A')
+        add_pdf_field(pdf, "Destination", request_data['destination'])
+        add_pdf_field(pdf, "Purpose", request_data['purpose'])
+        add_pdf_field(pdf, "Mode of Travel", request_data['mode_of_travel'])
+        add_pdf_field(pdf, "Departure Date", request_data['departure_date'])
+        add_pdf_field(pdf, "Arrival Date", request_data['arrival_date'])
+        add_pdf_field(pdf, "Duration", f"{request_data['duration_days']} days ({request_data['duration_nights']} nights)")
+        add_pdf_field(pdf, "Accommodation", request_data['accommodation_needed'])
+        add_pdf_field(pdf, "Status", request_data['status'].upper() if request_data['status'] else 'N/A')
+        
+        # Add cost details if available
+        if not cost_data.empty:
+            pdf.ln(5)
+            pdf.set_font('Arial', 'B', 12)
+            pdf.set_text_color(211, 47, 47)
+            pdf.cell(0, 10, 'Cost Details', 0, 1, 'L')
+            pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+            pdf.ln(5)
+            
+            cost = cost_data.iloc[0]
+            add_pdf_field(pdf, "Per Diem Amount", f"NGN {float(cost['per_diem_amount']):,.2f}" if cost['per_diem_amount'] else 'N/A')
+            add_pdf_field(pdf, "Flight Cost", f"NGN {float(cost['flight_cost']):,.2f}" if cost['flight_cost'] else 'N/A')
+            if 'airport_taxi_cost' in cost and cost['airport_taxi_cost']:
+                add_pdf_field(pdf, "Airport Taxi", f"NGN {float(cost['airport_taxi_cost']):,.2f}")
+            add_pdf_field(pdf, "Total Cost", f"NGN {float(cost['total_cost']):,.2f}" if cost['total_cost'] else 'N/A')
+            add_pdf_field(pdf, "Payment Status", cost['payment_status'].upper() if cost['payment_status'] else 'N/A')
+            if cost['budgeted_cost']:
+                add_pdf_field(pdf, "Budgeted Cost", f"NGN {float(cost['budgeted_cost']):,.2f}")
+            if cost['budget_balance']:
+                add_pdf_field(pdf, "Budget Balance", f"NGN {float(cost['budget_balance']):,.2f}")
+        
+        # Add approval history
+        if not approvals.empty:
+            pdf.ln(5)
+            pdf.set_font('Arial', 'B', 12)
+            pdf.set_text_color(211, 47, 47)
+            pdf.cell(0, 10, 'Approval History', 0, 1, 'L')
+            pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+            pdf.ln(5)
+            
+            for _, approval in approvals.iterrows():
+                add_pdf_field(pdf, approval['approver_role'], 
+                             f"{approval['status'].upper()} - {approval['approved_at']}")
+        
+        # Add employee personal details
+        pdf.ln(5)
+        pdf.set_font('Arial', 'B', 12)
+        pdf.set_text_color(211, 47, 47)
+        pdf.cell(0, 10, 'Employee Personal Details', 0, 1, 'L')
+        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        pdf.ln(5)
+        
+        add_pdf_field(pdf, "Date of Birth", request_data.get('date_of_birth', 'Not Provided'))
+        add_pdf_field(pdf, "Place of Birth", request_data.get('place_of_birth', 'Not Provided'))
+        add_pdf_field(pdf, "Passport Number", request_data.get('passport_number', 'Not Provided'))
+        add_pdf_field(pdf, "Nationality", request_data.get('nationality', 'Not Provided'))
+        add_pdf_field(pdf, "Marital Status", request_data.get('marital_status', 'Not Provided'))
+        
+        # Add employee bank details
+        pdf.ln(5)
+        pdf.set_font('Arial', 'B', 12)
+        pdf.set_text_color(211, 47, 47)
+        pdf.cell(0, 10, 'Employee Bank Details', 0, 1, 'L')
+        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        pdf.ln(5)
+        
+        add_pdf_field(pdf, "Bank Name", request_data.get('bank_name', 'Not Provided'))
+        add_pdf_field(pdf, "Account Number", request_data.get('account_number', 'Not Provided'))
+        add_pdf_field(pdf, "Account Name", request_data.get('account_name', 'Not Provided'))
+        
+        # Generate PDF as bytes
+        pdf_output = pdf.output(dest='S').encode('latin-1', errors='replace')
+        
+        if not pdf_output or len(pdf_output) < 100:  # Check if PDF is too small (likely empty)
+            st.warning("PDF generation produced a small file, attempting alternative method")
+            
+            # Alternative: Create a simple PDF with basic info
+            from reportlab.pdfgen import canvas
+            from reportlab.lib.pagesizes import A4
+            from reportlab.lib.units import inch
+            
+            buffer = io.BytesIO()
+            c = canvas.Canvas(buffer, pagesize=A4)
+            width, height = A4
+            
+            # Add content
+            c.setFont("Helvetica-Bold", 16)
+            c.setFillColorRGB(0.83, 0.18, 0.18)  # Red color
+            c.drawString(1*inch, height-1*inch, "PRUDENTIAL ZENITH LIFE INSURANCE")
+            
+            c.setFont("Helvetica-Bold", 14)
+            c.setFillColorRGB(0.4, 0.4, 0.4)  # Grey color
+            c.drawString(1*inch, height-1.5*inch, "Travel Request Report")
+            
+            y = height - 2.5*inch
+            c.setFont("Helvetica", 12)
+            c.setFillColorRGB(0, 0, 0)
+            
+            # Add basic info
+            c.drawString(1*inch, y, f"Request ID: TR-{int(request_data['id']):06d}")
+            y -= 20
+            c.drawString(1*inch, y, f"Employee: {request_data['full_name']}")
+            y -= 20
+            c.drawString(1*inch, y, f"Destination: {request_data['destination']}")
+            y -= 20
+            c.drawString(1*inch, y, f"Status: {request_data['status'].upper()}")
+            
+            c.save()
+            pdf_output = buffer.getvalue()
+        
+        return pdf_output
+        
+    except Exception as e:
+        st.error(f"Error generating PDF: {str(e)}")
+        import traceback
+        st.error(traceback.format_exc())
+        
+        # Return a simple error PDF
+        try:
+            from reportlab.pdfgen import canvas
+            from reportlab.lib.pagesizes import A4
+            
+            buffer = io.BytesIO()
+            c = canvas.Canvas(buffer, pagesize=A4)
+            width, height = A4
+            
+            c.setFont("Helvetica-Bold", 16)
+            c.drawString(100, height-100, "Error Generating Report")
+            c.setFont("Helvetica", 12)
+            c.drawString(100, height-150, f"An error occurred: {str(e)}")
+            c.save()
+            
+            return buffer.getvalue()
+        except:
+            return None
+    finally:
+        if conn:
+            conn.close()
+
+def payment_processing():
+    """Payment processing for Payables Officer - FIXED: Budget update when marking as paid (Requirement 1)"""
+    if st.session_state.role != "Payables Officer":
+        st.warning("Access denied")
+        return
+    
+    st.markdown('<h1 class="sub-header">Payment Processing</h1>', unsafe_allow_html=True)
+    
+    conn = sqlite3.connect('travel_app.db')
+    
+    # Get approved payments
+    query = """
+        SELECT tc.*, tr.destination, u.full_name, u.bank_name, u.account_number, u.account_name,
+               tr.travel_type
+        FROM travel_costs tc
+        JOIN travel_requests tr ON tc.request_id = tr.id
+        JOIN users u ON tr.user_id = u.id
+        WHERE tc.payment_status = 'approved' AND tc.payment_completed = 0
+        ORDER BY tc.payment_approved_date DESC
+    """
+    
+    approved_payments = pd.read_sql(query, conn)
+    
+    if not approved_payments.empty:
+        for _, row in approved_payments.iterrows():
+            with st.expander(f"Payment #{row['id']} - {row['full_name']} - NGN{row['total_cost']:,.2f}", expanded=False):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown(f"**Employee:** {row['full_name']}")
+                    st.markdown(f"**Destination:** {row['destination']}")
+                    st.markdown(f"**Travel Type:** {row['travel_type'].title()}")
+                    st.markdown(f"**Amount:** NGN{row['total_cost']:,.2f}")
+                    st.markdown(f"**Approved By:** {row['payment_approved_by']}")
+                    st.markdown(f"**Approved Date:** {row['payment_approved_date']}")
+                
+                with col2:
+                    st.markdown(f"**Bank:** {row['bank_name'] or 'Not provided'}")
+                    st.markdown(f"**Account Number:** {row['account_number'] or 'Not provided'}")
+                    st.markdown(f"**Account Name:** {row['account_name'] or 'Not provided'}")
+                    
+                    # Show current budget before payment
+                    current_budget = get_current_budget()
+                    st.markdown(f"**Current Budget Balance:** NGN{current_budget['balance']:,.2f}")
+                    st.markdown(f"**After This Payment:** NGN{current_budget['balance'] - row['total_cost']:,.2f}")
+                
+                # Process payment
+                with st.form(f"process_payment_{row['id']}"):
+                    payment_method = st.selectbox("Payment Method", 
+                                                 ["Bank Transfer", "Cheque", "Cash"])
+                    reference_number = st.text_input("Reference Number")
+                    payment_date = st.date_input("Payment Date", value=date.today())
+                    
+                    if st.form_submit_button("✅ Mark as Paid", type="primary"):
+                        try:
+                            c = conn.cursor()
+                            
+                            # Update payment status
+                            c.execute("""UPDATE travel_costs 
+                                       SET payment_status = 'paid', payment_completed = 1,
+                                           payment_date = ?
+                                       WHERE id = ?""",
+                                     (payment_date.strftime("%Y-%m-%d"), row['id']))
+                            
+                            # Record payment transaction
+                            c.execute("""INSERT INTO payments 
+                                       (cost_id, amount, payment_method, reference_number, paid_by, paid_date)
+                                       VALUES (?, ?, ?, ?, ?, ?)""",
+                                     (row['id'], row['total_cost'], payment_method, 
+                                      reference_number, st.session_state.full_name,
+                                      payment_date.strftime("%Y-%m-%d")))
+                            
+                            # FIXED: Update budget with the actual payment amount
+                            update_budget(row['total_cost'])
+                            
+                            # Record approval
+                            c.execute("""INSERT INTO approvals 
+                                       (request_id, approver_role, approver_name, status, comments)
+                                       VALUES (?, ?, ?, ?, ?)""",
+                                     (row['request_id'], "Payables Officer", 
+                                      st.session_state.full_name, "completed",
+                                      f"Payment processed - NGN{row['total_cost']:,.2f}"))
+                            
+                            conn.commit()
+                            
+                            # Show updated budget
+                            updated_budget = get_current_budget()
+                            st.success(f"✅ Payment marked as completed!")
+                            st.info(f"Budget updated: Utilized = NGN{updated_budget['utilized_budget']:,.2f}, Balance = NGN{updated_budget['balance']:,.2f}")
+                            time.sleep(3)
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error processing payment: {str(e)}")
+    else:
+        st.info("No payments pending processing")
+    
+    conn.close()
+
+def travel_history():
+    """Travel history page - FIXED: PDF download"""
+    st.markdown('<h1 class="sub-header">Travel History</h1>', unsafe_allow_html=True)
+    
+    conn = sqlite3.connect('travel_app.db')
+    
+    # Filters
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        status_filter = st.selectbox("Filter by Status", 
+                                    ["All", "pending", "approved", "rejected"])
+    with col2:
+        type_filter = st.selectbox("Filter by Type", 
+                                  ["All", "local", "international"])
+    with col3:
+        year_filter = st.selectbox("Filter by Year", 
+                                  ["All"] + list(range(2023, datetime.datetime.now().year + 2)))
+    
+    # Build query
+    query = """SELECT tr.*, tc.payment_status, tc.total_cost 
+               FROM travel_requests tr 
+               LEFT JOIN travel_costs tc ON tr.id = tc.request_id 
+               WHERE tr.user_id = ?"""
+    params = [st.session_state.user_id]
+    
+    if status_filter != "All":
+        query += " AND tr.status = ?"
+        params.append(status_filter)
+    
+    if type_filter != "All":
+        query += " AND tr.travel_type = ?"
+        params.append(type_filter)
+    
+    if year_filter != "All":
+        query += " AND strftime('%Y', tr.created_at) = ?"
+        params.append(str(year_filter))
+    
+    query += " ORDER BY tr.created_at DESC"
+    
+    travel_data = pd.read_sql(query, conn, params=params)
+    
+    if not travel_data.empty:
+        # Export button
+        if st.button("📊 Export to Excel"):
+            # Convert to Excel
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                travel_data.to_excel(writer, index=False, sheet_name='Travel History')
+            
+            st.download_button(
+                label="Download Excel",
+                data=output.getvalue(),
+                file_name=f"travel_history_{st.session_state.username}_{date.today()}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        
+        for _, row in travel_data.iterrows():
+            with st.expander(f"{row['destination']} - {row['status'].upper()} ({row['created_at'][:10]})", expanded=False):
+                col_a, col_b, col_c = st.columns(3)
+                
+                with col_a:
+                    st.markdown(f"**Request ID:** TR-{row['id']:06d}")
+                    st.markdown(f"**Type:** {row['travel_type'].title()}")
+                    st.markdown(f"**Purpose:** {row['purpose']}")
+                    st.markdown(f"**Mode:** {row['mode_of_travel']}")
+                
+                with col_b:
+                    st.markdown(f"**Departure:** {row['departure_date']}")
+                    st.markdown(f"**Arrival:** {row['arrival_date']}")
+                    st.markdown(f"**Duration:** {row['duration_days']} days")
+                    st.markdown(f"**Accommodation:** {row['accommodation_needed']}")
+                
+                with col_c:
+                    status_badge = f"<span class='approval-badge {row['status']}-badge'>{row['status'].upper()}</span>"
+                    st.markdown(f"**Status:** {status_badge}", unsafe_allow_html=True)
+                    
+                    if pd.notna(row['payment_status']):
+                        payment_badge = f"<span class='approval-badge {row['payment_status']}-badge'>{row['payment_status'].upper()}</span>"
+                        st.markdown(f"**Payment:** {payment_badge}", unsafe_allow_html=True)
+                    
+                    if pd.notna(row['total_cost']):
+                        st.markdown(f"**Total Cost:** NGN{row['total_cost']:,.2f}")
+                
+                # Download PDF button - FIXED
+                col_d, col_e = st.columns(2)
+                with col_d:
+                    pdf_key = f"pdf_{row['id']}"
+                    if st.button(f"📄 Generate PDF Report", key=pdf_key):
+                        with st.spinner("Generating PDF..."):
+                            pdf_bytes = generate_pdf_report(row['id'])
+                            if pdf_bytes and len(pdf_bytes) > 0:
+                                st.session_state[f"pdf_data_{row['id']}"] = pdf_bytes
+                                st.success("PDF generated successfully!")
+                            else:
+                                st.error("Failed to generate PDF")
+                    
+                    # Show download button if PDF is generated
+                    if f"pdf_data_{row['id']}" in st.session_state:
+                        st.download_button(
+                            label="📥 Download PDF",
+                            data=st.session_state[f"pdf_data_{row['id']}"],
+                            file_name=f"travel_report_{row['id']}.pdf",
+                            mime="application/pdf",
+                            key=f"download_{row['id']}"
+                        )
+                
+                st.markdown("---")
+    else:
+        st.info("No travel records found")
+    
+    conn.close()
+
 def generate_pdf_report(request_id):
     """Generate PDF report for travel request - FIXED: Empty PDF issue"""
     conn = None
@@ -1777,7 +2321,6 @@ def dashboard():
         final_approvals()
     elif selected == "Payment Processing":
         payment_processing()
-
 def show_dashboard():
     """Dashboard overview"""
     st.markdown('<h1 class="main-header">Dashboard Overview</h1>', unsafe_allow_html=True)
@@ -1901,8 +2444,8 @@ def show_dashboard():
                 </div>
             </div>
             """, unsafe_allow_html=True)
-        except:
-            st.info("Budget data not available")
+        except Exception as e:
+            st.error(f"Error loading budget: {str(e)}")
     
     conn.close()
 
@@ -2895,4 +3438,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
